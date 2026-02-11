@@ -2,6 +2,14 @@
 
 A Rust tool that reads 2D contours from YAML files, computes their complex Fourier decomposition, and generates interactive HTML visualizations with animated epicycles.
 
+## Live demos
+
+- [Electric Guitar](https://laurentcarrie.github.io/fluffy-eureka/examples/guitar.html)
+- [Music Note](https://laurentcarrie.github.io/fluffy-eureka/examples/note.html)
+- [Cursive Text "Move"](https://laurentcarrie.github.io/fluffy-eureka/examples/move-the-line.html)
+- [Cardioid](https://laurentcarrie.github.io/fluffy-eureka/examples/cardioid.html)
+- [Square](https://laurentcarrie.github.io/fluffy-eureka/examples/square.html)
+
 ## How it works
 
 Any closed 2D shape can be described as a sum of rotating circles (Fourier series). This tool:
