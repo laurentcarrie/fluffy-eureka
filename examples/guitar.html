@@ -244,8 +244,8 @@ for (let nh = 1; nh <= maxNh;) {
   nhSteps.push(nh);
   if (nh < 10) nh += 1;
   else if (nh < 20) nh += 5;
-  else if (nh<100) nh += 10;
-  else nh+=100
+  else if (nh < 100) nh += 10;
+  else nh += 100
 }
 const totalLoops = nhSteps.length;
 

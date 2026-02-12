@@ -38,12 +38,53 @@ pub fn html_of_svg_path_with_points(svg_path: &str, points: &[(f64, f64)]) -> St
     html_of_svg_path_with_fourier(svg_path, points, None)
 }
 
+/// Harmonic step schedule: thresholds with increments, plus a final increment.
+///
+/// For example, `HarmonicSteps { thresholds: vec![(10, 1), (20, 5), (100, 10)], final_step: 100 }`
+/// means: below 10 step by 1, below 20 step by 5, below 100 step by 10, else step by 100.
+pub struct HarmonicSteps {
+    pub thresholds: Vec<(usize, usize)>,
+    pub final_step: usize,
+}
+
+impl Default for HarmonicSteps {
+    fn default() -> Self {
+        Self {
+            thresholds: vec![(10, 1), (20, 5), (100, 10)],
+            final_step: 100,
+        }
+    }
+}
+
+pub struct EmbedOptions {
+    pub speed: f64,
+    pub steps: HarmonicSteps,
+    pub show_contour: bool,
+    pub hide_point: bool,
+    pub hide_trace: bool,
+    pub trace_length: usize,
+}
+
+impl Default for EmbedOptions {
+    fn default() -> Self {
+        Self {
+            speed: 3.0,
+            steps: HarmonicSteps::default(),
+            show_contour: false,
+            hide_point: false,
+            hide_trace: false,
+            trace_length: 500,
+        }
+    }
+}
+
 pub fn html_of_svg_path_with_fourier(
     svg_path: &str,
     points: &[(f64, f64)],
     fourier: Option<&FourierDecomposition>,
 ) -> String {
-    let inner = inner_content(svg_path, points, fourier);
+    let p = compute_params(svg_path, points, fourier, &HarmonicSteps::default());
+    let inner = inner_content_full(&p, fourier);
     format!(
         r#"<html>
 <head><title id="pageTitle">Harmonics: 10</title></head>
@@ -59,8 +100,10 @@ pub fn embed_html_of_svg_path_with_fourier(
     svg_path: &str,
     points: &[(f64, f64)],
     fourier: Option<&FourierDecomposition>,
+    opts: &EmbedOptions,
 ) -> String {
-    let inner = inner_content(svg_path, points, fourier);
+    let p = compute_params(svg_path, points, fourier, &opts.steps);
+    let inner = inner_content_embed(&p, opts);
     format!(
         r#"<div style="display:flex;flex-direction:column;align-items:center;background:black;color:white">
 {inner}
@@ -69,11 +112,24 @@ pub fn embed_html_of_svg_path_with_fourier(
     )
 }
 
-fn inner_content(
+struct Params {
+    svg_path: String,
+    points_array: String,
+    fourier_json: String,
+    vb_x: f64,
+    vb_y: f64,
+    vb_size: f64,
+    stroke: f64,
+    dot_r: f64,
+    nh_step_js: String,
+}
+
+fn compute_params(
     svg_path: &str,
     points: &[(f64, f64)],
     fourier: Option<&FourierDecomposition>,
-) -> String {
+    steps: &HarmonicSteps,
+) -> Params {
     let points_json: Vec<String> = points
         .iter()
         .map(|(x, y)| format!("[{},{}]", x, y))
@@ -120,13 +176,50 @@ fn inner_content(
         _ => "null".to_string(),
     };
 
+    let nh_step_js = {
+        let mut parts = Vec::new();
+        for (i, &(threshold, increment)) in steps.thresholds.iter().enumerate() {
+            let keyword = if i == 0 { "if" } else { "else if" };
+            parts.push(format!("  {} (nh < {}) nh += {};", keyword, threshold, increment));
+        }
+        parts.push(format!("  else nh += {}", steps.final_step));
+        parts.join("\n")
+    };
+
+    Params {
+        svg_path: svg_path.to_string(),
+        points_array,
+        fourier_json,
+        vb_x,
+        vb_y,
+        vb_size,
+        stroke: vb_size / 100.0,
+        dot_r: vb_size * 0.7 / 100.0,
+        nh_step_js,
+    }
+}
+
+fn svg_markup(p: &Params) -> String {
     format!(
         r#"<svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="{vb_x} {vb_y} {vb_size} {vb_size}" width="500" height="500">
   <path id="contour-path" d="{svg_path}" fill="none" stroke="black" stroke-width="{stroke}" style="display:none"/>
   <g id="fourier-group"></g>
   <polyline id="trace" fill="none" stroke="red" stroke-width="{stroke}" points="" opacity="0"/>
   <circle id="dot" cx="0" cy="0" r="{dot_r}" fill="none" stroke="red" stroke-width="{stroke}"/>
-</svg>
+</svg>"#,
+        svg_path = p.svg_path,
+        vb_x = p.vb_x,
+        vb_y = p.vb_y,
+        vb_size = p.vb_size,
+        stroke = p.stroke,
+        dot_r = p.dot_r,
+    )
+}
+
+fn inner_content_full(p: &Params, fourier: Option<&FourierDecomposition>) -> String {
+    let svg = svg_markup(p);
+    format!(
+        r#"{svg}
 <div style="margin-top:10px">
   <input type="range" id="slider" min="0" max="1" step="0.001" value="0" style="width:500px"/>
   <span id="tval">t = 0.000</span>
@@ -362,10 +455,7 @@ const maxNh = fourier ? fourier.length : 1;
 const nhSteps = [];
 for (let nh = 1; nh <= maxNh;) {{
   nhSteps.push(nh);
-  if (nh < 10) nh += 1;
-  else if (nh < 20) nh += 5;
-  else if (nh<100) nh += 10;
-  else nh+=100
+{nh_step_js}
 }}
 const totalLoops = nhSteps.length;
 
@@ -449,17 +539,239 @@ document.getElementById("toggleTrace").addEventListener("click", function() {{
 lastTime = null;
 animId = requestAnimationFrame(animate);
 </script>"#,
-        svg_path = svg_path,
-        points_array = points_array,
-        fourier_json = fourier_json,
-        vb_x = vb_x,
-        vb_y = vb_y,
-        vb_size = vb_size,
-        stroke = vb_size / 100.0,
-        dot_r = vb_size * 0.7 / 100.0,
+        svg = svg,
+        points_array = p.points_array,
+        fourier_json = p.fourier_json,
+        vb_size = p.vb_size,
         max_harmonics = match fourier {
             Some(fd) => fd.coeffs.len(),
             None => 1,
-        }
+        },
+        nh_step_js = p.nh_step_js,
+    )
+}
+
+fn inner_content_embed(p: &Params, opts: &EmbedOptions) -> String {
+    let svg = svg_markup(p);
+    let contour_init = if opts.show_contour {
+        r#"document.getElementById("contour-path").style.display = "";"#
+    } else {
+        ""
+    };
+    format!(
+        r#"{svg}
+<script>
+const points = {points_array};
+const fourier = {fourier_json};
+const dot = document.getElementById("dot");
+const svgNS = "http://www.w3.org/2000/svg";
+const colors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
+const traceColors = ["red", "lime", "dodgerblue", "gold", "hotpink", "cyan", "orange", "white"];
+let traceColorIdx = 0;
+const scale = {vb_size} / 100;
+const traceEl = document.getElementById("trace");
+let traceVisible = {trace_visible};
+let traceHistory = [];
+const traceMaxLen = {trace_length};
+
+let autoOpacity = true;
+let autoOpacityDir = 1;
+function applyAutoOpacity(opacity) {{
+  traceEl.setAttribute("opacity", opacity);
+}}
+
+function evalFourier(t) {{
+  if (!fourier) return null;
+  const numH = getNumHarmonics();
+  let cx = 0, cy = 0;
+  for (let k = 0; k < numH; k++) {{
+    const c = fourier[k];
+    const theta = 2 * Math.PI * c.freq * t;
+    cx += c.re * Math.cos(theta) - c.im * Math.sin(theta);
+    cy += c.im * Math.cos(theta) + c.re * Math.sin(theta);
+  }}
+  return [cx, cy];
+}}
+
+function updateTrace(t) {{
+  if (!traceVisible || !fourier) {{
+    traceEl.style.display = "none";
+    return;
+  }}
+  const pt = evalFourier(t);
+  if (!pt) return;
+  traceHistory.push(pt);
+  if (traceHistory.length > traceMaxLen) {{
+    traceHistory = traceHistory.slice(traceHistory.length - traceMaxLen);
+  }}
+  traceEl.setAttribute("points", traceHistory.map(p => p[0] + "," + p[1]).join(" "));
+  traceEl.style.display = "";
+}}
+
+function interp(t) {{
+  const n = points.length;
+  if (n === 0) return [0, 0];
+  if (n === 1) return points[0];
+  const scaled = t * (n - 1);
+  const i = Math.min(Math.floor(scaled), n - 2);
+  const frac = scaled - i;
+  return [
+    points[i][0] * (1 - frac) + points[i + 1][0] * frac,
+    points[i][1] * (1 - frac) + points[i + 1][1] * frac
+  ];
+}}
+
+function initFourier() {{
+  if (!fourier) return;
+  const g = document.getElementById("fourier-group");
+
+  for (let k = 0; k < fourier.length; k++) {{
+    const color = colors[k % colors.length];
+
+    const circle = document.createElementNS(svgNS, "circle");
+    circle.id = "fourier-circle-" + k;
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", color);
+    circle.setAttribute("stroke-width", 0.3 * scale);
+    circle.setAttribute("stroke-dasharray", scale + "," + scale);
+    circle.setAttribute("r", fourier[k].r);
+    g.appendChild(circle);
+
+    const line = document.createElementNS(svgNS, "line");
+    line.id = "fourier-line-" + k;
+    line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", 0.3 * scale);
+    g.appendChild(line);
+
+    const fdot = document.createElementNS(svgNS, "circle");
+    fdot.id = "fourier-dot-" + k;
+    fdot.setAttribute("r", 0.8 * scale);
+    fdot.setAttribute("fill", color);
+    g.appendChild(fdot);
+  }}
+}}
+
+let numHarmonics = 2;
+function getNumHarmonics() {{
+  if (!fourier) return 0;
+  return Math.max(1, Math.min(numHarmonics, fourier.length));
+}}
+
+function updateFourier(t) {{
+  if (!fourier) return;
+  const numH = getNumHarmonics();
+  let cx = 0, cy = 0;
+
+  for (let k = 0; k < fourier.length; k++) {{
+    const circle = document.getElementById("fourier-circle-" + k);
+    const line = document.getElementById("fourier-line-" + k);
+    const fdot = document.getElementById("fourier-dot-" + k);
+
+    if (k >= numH) {{
+      circle.style.display = "none";
+      line.style.display = "none";
+      fdot.style.display = "none";
+      continue;
+    }}
+
+    circle.style.display = "";
+    line.style.display = "";
+    fdot.style.display = "";
+
+    const c = fourier[k];
+    const theta = 2 * Math.PI * c.freq * t;
+    const dx = c.re * Math.cos(theta) - c.im * Math.sin(theta);
+    const dy = c.im * Math.cos(theta) + c.re * Math.sin(theta);
+    const nx = cx + dx;
+    const ny = cy + dy;
+
+    circle.setAttribute("cx", cx);
+    circle.setAttribute("cy", cy);
+
+    line.setAttribute("x1", cx);
+    line.setAttribute("y1", cy);
+    line.setAttribute("x2", nx);
+    line.setAttribute("y2", ny);
+
+    fdot.setAttribute("cx", nx);
+    fdot.setAttribute("cy", ny);
+
+    cx = nx;
+    cy = ny;
+  }}
+}}
+
+initFourier();
+updateFourier(0);
+{contour_init}
+
+let dotHidden = {dot_hidden};
+
+function updateDisplay(t) {{
+  updateFourier(t);
+  updateTrace(t);
+  const pt = evalFourier(t);
+  if (pt) {{
+    dot.setAttribute("cx", pt[0]);
+    dot.setAttribute("cy", pt[1]);
+  }}
+  if (!dotHidden) dot.style.display = "";
+}}
+
+let animId = null;
+let lastTime = null;
+const speed = {speed};
+let currentT = 0;
+let loopIndex = 0;
+
+const maxNh = fourier ? fourier.length : 1;
+const nhSteps = [];
+for (let nh = 1; nh <= maxNh;) {{
+  nhSteps.push(nh);
+{nh_step_js}
+}}
+const totalLoops = nhSteps.length;
+
+function lerp(a, b, frac) {{ return a + (b - a) * frac; }}
+
+function applyLoopParams() {{
+  const frac = loopIndex / (totalLoops - 1);
+  const opacity = lerp(0.2, 0.8, frac);
+  applyAutoOpacity(Math.round(opacity * 100) / 100);
+  const h = nhSteps[loopIndex];
+  numHarmonics = h;
+  traceColorIdx = loopIndex % traceColors.length;
+  traceEl.setAttribute("stroke", traceColors[traceColorIdx]);
+}}
+
+applyLoopParams();
+
+function animate(timestamp) {{
+  if (lastTime === null) lastTime = timestamp;
+  const dt = (timestamp - lastTime) / 1000;
+  lastTime = timestamp;
+  currentT += dt * speed * 0.1;
+  if (currentT > 1) {{
+    currentT -= 1;
+    loopIndex = (loopIndex + 1) % totalLoops;
+    applyLoopParams();
+  }}
+  updateDisplay(currentT);
+  animId = requestAnimationFrame(animate);
+}}
+
+lastTime = null;
+animId = requestAnimationFrame(animate);
+</script>"#,
+        svg = svg,
+        points_array = p.points_array,
+        fourier_json = p.fourier_json,
+        vb_size = p.vb_size,
+        speed = opts.speed,
+        trace_visible = !opts.hide_trace,
+        trace_length = opts.trace_length,
+        dot_hidden = opts.hide_point,
+        contour_init = contour_init,
+        nh_step_js = p.nh_step_js,
     )
 }
