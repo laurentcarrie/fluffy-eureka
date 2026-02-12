@@ -6,6 +6,7 @@
   <g id="fourier-group"></g>
   <polyline id="trace" fill="none" stroke="red" stroke-width="1.0794093693693694" points="" opacity="0"/>
   <circle id="dot" cx="0" cy="0" r="0.7555865585585585" fill="none" stroke="red" stroke-width="1.0794093693693694"/>
+  <text id="nh-label" fill="white" font-size="4.3176374774774775" style="pointer-events:none"></text>
 </svg>
 <div style="margin-top:10px">
   <input type="range" id="slider" min="0" max="1" step="0.001" value="0" style="width:500px"/>
@@ -37,8 +38,8 @@ const slider = document.getElementById("slider");
 const dot = document.getElementById("dot");
 const tval = document.getElementById("tval");
 const svgNS = "http://www.w3.org/2000/svg";
-const colors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
-const traceColors = ["red", "lime", "dodgerblue", "gold", "hotpink", "cyan", "orange", "white"];
+const fourierCircleColors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
+const traceColors = ["red", "lime", "dodgerblue", "gold", "hotpink", "cyan", "orange"];
 let traceColorIdx = 0;
 const scale = 107.94093693693694 / 100;
 const traceEl = document.getElementById("trace");
@@ -120,7 +121,7 @@ function initFourier() {
   const g = document.getElementById("fourier-group");
 
   for (let k = 0; k < fourier.length; k++) {
-    const color = colors[k % colors.length];
+    const color = fourierCircleColors[k % fourierCircleColors.length];
 
     const circle = document.createElementNS(svgNS, "circle");
     circle.id = "fourier-circle-" + k;
@@ -155,6 +156,7 @@ function updateFourier(t) {
   if (!fourier) return;
   const numH = getNumHarmonics();
   let cx = 0, cy = 0;
+  let firstDotX = 0, firstDotY = 0;
 
   for (let k = 0; k < fourier.length; k++) {
     const circle = document.getElementById("fourier-circle-" + k);
@@ -190,9 +192,14 @@ function updateFourier(t) {
     fdot.setAttribute("cx", nx);
     fdot.setAttribute("cy", ny);
 
+    if (k === 0) { firstDotX = nx; firstDotY = ny; }
     cx = nx;
     cy = ny;
   }
+  const nhLabel = document.getElementById("nh-label");
+  nhLabel.setAttribute("x", firstDotX + 2 * scale);
+  nhLabel.setAttribute("y", firstDotY);
+  nhLabel.textContent = numH;
 }
 
 initFourier();

@@ -63,6 +63,9 @@ pub struct EmbedOptions {
     pub hide_point: bool,
     pub hide_trace: bool,
     pub trace_length: usize,
+    pub opacity: f64,
+    pub show_nh: bool,
+    pub trace_width: f64,
 }
 
 impl Default for EmbedOptions {
@@ -74,6 +77,9 @@ impl Default for EmbedOptions {
             hide_point: false,
             hide_trace: false,
             trace_length: 500,
+            opacity: 0.5,
+            show_nh: true,
+            trace_width: 1.0,
         }
     }
 }
@@ -96,8 +102,7 @@ pub fn html_of_svg_path_with_fourier(
     )
 }
 
-pub fn embed_html_of_svg_path_with_fourier(
-    svg_path: &str,
+pub fn embed_html_of_svg_path_with_fourier(    svg_path: &str,
     points: &[(f64, f64)],
     fourier: Option<&FourierDecomposition>,
     opts: &EmbedOptions,
@@ -206,6 +211,7 @@ fn svg_markup(p: &Params) -> String {
   <g id="fourier-group"></g>
   <polyline id="trace" fill="none" stroke="red" stroke-width="{stroke}" points="" opacity="0"/>
   <circle id="dot" cx="0" cy="0" r="{dot_r}" fill="none" stroke="red" stroke-width="{stroke}"/>
+  <text id="nh-label" fill="white" font-size="{font_size}" style="pointer-events:none"></text>
 </svg>"#,
         svg_path = p.svg_path,
         vb_x = p.vb_x,
@@ -213,6 +219,7 @@ fn svg_markup(p: &Params) -> String {
         vb_size = p.vb_size,
         stroke = p.stroke,
         dot_r = p.dot_r,
+        font_size = p.vb_size * 4.0 / 100.0,
     )
 }
 
@@ -250,8 +257,8 @@ const slider = document.getElementById("slider");
 const dot = document.getElementById("dot");
 const tval = document.getElementById("tval");
 const svgNS = "http://www.w3.org/2000/svg";
-const colors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
-const traceColors = ["red", "lime", "dodgerblue", "gold", "hotpink", "cyan", "orange", "white"];
+const fourierCircleColors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
+const traceColors = ["red", "lime", "dodgerblue", "gold", "hotpink", "cyan", "orange"];
 let traceColorIdx = 0;
 const scale = {vb_size} / 100;
 const traceEl = document.getElementById("trace");
@@ -333,7 +340,7 @@ function initFourier() {{
   const g = document.getElementById("fourier-group");
 
   for (let k = 0; k < fourier.length; k++) {{
-    const color = colors[k % colors.length];
+    const color = fourierCircleColors[k % fourierCircleColors.length];
 
     const circle = document.createElementNS(svgNS, "circle");
     circle.id = "fourier-circle-" + k;
@@ -368,6 +375,7 @@ function updateFourier(t) {{
   if (!fourier) return;
   const numH = getNumHarmonics();
   let cx = 0, cy = 0;
+  let firstDotX = 0, firstDotY = 0;
 
   for (let k = 0; k < fourier.length; k++) {{
     const circle = document.getElementById("fourier-circle-" + k);
@@ -403,9 +411,14 @@ function updateFourier(t) {{
     fdot.setAttribute("cx", nx);
     fdot.setAttribute("cy", ny);
 
+    if (k === 0) {{ firstDotX = nx; firstDotY = ny; }}
     cx = nx;
     cy = ny;
   }}
+  const nhLabel = document.getElementById("nh-label");
+  nhLabel.setAttribute("x", firstDotX + 2 * scale);
+  nhLabel.setAttribute("y", firstDotY);
+  nhLabel.textContent = numH;
 }}
 
 initFourier();
@@ -565,20 +578,16 @@ const points = {points_array};
 const fourier = {fourier_json};
 const dot = document.getElementById("dot");
 const svgNS = "http://www.w3.org/2000/svg";
-const colors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
-const traceColors = ["red", "lime", "dodgerblue", "gold", "hotpink", "cyan", "orange", "white"];
+const fourierCircleColors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
+const traceColors = ["red", "lime", "dodgerblue", "gold", "hotpink", "cyan", "orange"];
 let traceColorIdx = 0;
 const scale = {vb_size} / 100;
 const traceEl = document.getElementById("trace");
 let traceVisible = {trace_visible};
 let traceHistory = [];
 const traceMaxLen = {trace_length};
-
-let autoOpacity = true;
-let autoOpacityDir = 1;
-function applyAutoOpacity(opacity) {{
-  traceEl.setAttribute("opacity", opacity);
-}}
+traceEl.setAttribute("opacity", {opacity});
+traceEl.setAttribute("stroke-width", {trace_width});
 
 function evalFourier(t) {{
   if (!fourier) return null;
@@ -626,7 +635,7 @@ function initFourier() {{
   const g = document.getElementById("fourier-group");
 
   for (let k = 0; k < fourier.length; k++) {{
-    const color = colors[k % colors.length];
+    const color = fourierCircleColors[k % fourierCircleColors.length];
 
     const circle = document.createElementNS(svgNS, "circle");
     circle.id = "fourier-circle-" + k;
@@ -661,6 +670,7 @@ function updateFourier(t) {{
   if (!fourier) return;
   const numH = getNumHarmonics();
   let cx = 0, cy = 0;
+  let firstDotX = 0, firstDotY = 0;
 
   for (let k = 0; k < fourier.length; k++) {{
     const circle = document.getElementById("fourier-circle-" + k);
@@ -696,8 +706,15 @@ function updateFourier(t) {{
     fdot.setAttribute("cx", nx);
     fdot.setAttribute("cy", ny);
 
+    if (k === 0) {{ firstDotX = nx; firstDotY = ny; }}
     cx = nx;
     cy = ny;
+  }}
+  if ({show_nh}) {{
+    const nhLabel = document.getElementById("nh-label");
+    nhLabel.setAttribute("x", firstDotX + 2 * scale);
+    nhLabel.setAttribute("y", firstDotY);
+    nhLabel.textContent = numH;
   }}
 }}
 
@@ -732,12 +749,7 @@ for (let nh = 1; nh <= maxNh;) {{
 }}
 const totalLoops = nhSteps.length;
 
-function lerp(a, b, frac) {{ return a + (b - a) * frac; }}
-
 function applyLoopParams() {{
-  const frac = loopIndex / (totalLoops - 1);
-  const opacity = lerp(0.2, 0.8, frac);
-  applyAutoOpacity(Math.round(opacity * 100) / 100);
   const h = nhSteps[loopIndex];
   numHarmonics = h;
   traceColorIdx = loopIndex % traceColors.length;
@@ -772,6 +784,9 @@ animId = requestAnimationFrame(animate);
         trace_length = opts.trace_length,
         dot_hidden = opts.hide_point,
         contour_init = contour_init,
+        opacity = opts.opacity,
+        show_nh = opts.show_nh,
+        trace_width = opts.trace_width,
         nh_step_js = p.nh_step_js,
     )
 }
