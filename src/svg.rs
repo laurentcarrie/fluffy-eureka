@@ -43,6 +43,37 @@ pub fn html_of_svg_path_with_fourier(
     points: &[(f64, f64)],
     fourier: Option<&FourierDecomposition>,
 ) -> String {
+    let inner = inner_content(svg_path, points, fourier);
+    format!(
+        r#"<html>
+<head><title id="pageTitle">Harmonics: 10</title></head>
+<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0;min-height:100vh;background:black;color:white">
+{inner}
+</body>
+</html>"#,
+        inner = inner,
+    )
+}
+
+pub fn embed_html_of_svg_path_with_fourier(
+    svg_path: &str,
+    points: &[(f64, f64)],
+    fourier: Option<&FourierDecomposition>,
+) -> String {
+    let inner = inner_content(svg_path, points, fourier);
+    format!(
+        r#"<div style="display:flex;flex-direction:column;align-items:center;background:black;color:white">
+{inner}
+</div>"#,
+        inner = inner,
+    )
+}
+
+fn inner_content(
+    svg_path: &str,
+    points: &[(f64, f64)],
+    fourier: Option<&FourierDecomposition>,
+) -> String {
     let points_json: Vec<String> = points
         .iter()
         .map(|(x, y)| format!("[{},{}]", x, y))
@@ -90,10 +121,7 @@ pub fn html_of_svg_path_with_fourier(
     };
 
     format!(
-        r#"<html>
-<head><title id="pageTitle">Harmonics: 10</title></head>
-<body style="display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0;min-height:100vh;background:black;color:white">
-<svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="{vb_x} {vb_y} {vb_size} {vb_size}" width="500" height="500">
+        r#"<svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="{vb_x} {vb_y} {vb_size} {vb_size}" width="500" height="500">
   <path id="contour-path" d="{svg_path}" fill="none" stroke="black" stroke-width="{stroke}" style="display:none"/>
   <g id="fourier-group"></g>
   <polyline id="trace" fill="none" stroke="red" stroke-width="{stroke}" points="" opacity="0"/>
@@ -312,7 +340,8 @@ slider.addEventListener("input", function() {{
 
 const harmonicsInput = document.getElementById("harmonics");
 function onHarmonicsChange() {{
-  document.getElementById("pageTitle").textContent = "Harmonics: " + harmonicsInput.value;
+  const titleEl = document.getElementById("pageTitle");
+  if (titleEl) titleEl.textContent = "Harmonics: " + harmonicsInput.value;
   updateDisplay(parseFloat(slider.value));
 }}
 harmonicsInput.addEventListener("input", onHarmonicsChange);
@@ -351,7 +380,8 @@ function applyLoopParams() {{
   applyAutoOpacity(Math.round(opacity * 100) / 100);
   const h = nhSteps[loopIndex];
   harmonicsInput.value = h;
-  document.getElementById("pageTitle").textContent = "Harmonics: " + h;
+  const titleEl = document.getElementById("pageTitle");
+  if (titleEl) titleEl.textContent = "Harmonics: " + h;
   traceColorIdx = loopIndex % traceColors.length;
   traceEl.setAttribute("stroke", traceColors[traceColorIdx]);
 }}
@@ -418,9 +448,7 @@ document.getElementById("toggleTrace").addEventListener("click", function() {{
 // Auto-start animation
 lastTime = null;
 animId = requestAnimationFrame(animate);
-</script>
-</body>
-</html>"#,
+</script>"#,
         svg_path = svg_path,
         points_array = points_array,
         fourier_json = fourier_json,

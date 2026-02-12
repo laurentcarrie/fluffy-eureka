@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use fluffy::model::{Contour, fourier_decomposition, interpolate};
-use fluffy::svg::{html_of_svg_path_with_fourier, svg_path_of_contour};
+use fluffy::svg::{embed_html_of_svg_path_with_fourier, html_of_svg_path_with_fourier, svg_path_of_contour};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -34,6 +34,14 @@ fn main() {
         eprintln!("Error writing {}: {}", output_path.display(), e);
         std::process::exit(1);
     });
-
     println!("Written to {}", output_path.display());
+
+    let embed_html = embed_html_of_svg_path_with_fourier(&svg_path, &contour.points, Some(&fd));
+    let stem = input_path.file_stem().unwrap().to_str().unwrap();
+    let embed_path = input_path.with_file_name(format!("{}-embed.html", stem));
+    fs::write(&embed_path, embed_html).unwrap_or_else(|e| {
+        eprintln!("Error writing {}: {}", embed_path.display(), e);
+        std::process::exit(1);
+    });
+    println!("Written to {}", embed_path.display());
 }
