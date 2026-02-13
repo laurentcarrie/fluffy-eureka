@@ -1,56 +1,18 @@
-name: Bump & Publish
+name: Publish to crates.io
 
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: "Version bump type"
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
+  push:
+    tags:
+      - "v*"
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install cargo-edit
-        run: cargo install cargo-set-version
-
-      - name: Bump version
-        id: bump
-        run: |
-          CURRENT=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
-          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
-
-          IFS='.' read -r major minor patch <<< "$CURRENT"
-          case "${{ inputs.bump }}" in
-            major) NEW="$((major + 1)).0.0" ;;
-            minor) NEW="${major}.$((minor + 1)).0" ;;
-            patch) NEW="${major}.${minor}.$((patch + 1))" ;;
-          esac
-          echo "new=$NEW" >> "$GITHUB_OUTPUT"
-
-          cargo set-version "$NEW"
-          echo "Bumped $CURRENT -> $NEW"
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Cargo.toml Cargo.lock
-          git commit -m "Bump version to ${{ steps.bump.outputs.new }}"
-          git tag "v${{ steps.bump.outputs.new }}"
-          git push origin HEAD --tags
 
       - name: Publish to crates.io
         run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
