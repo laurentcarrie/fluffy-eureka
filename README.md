@@ -1,9 +1,10 @@
 # Fluffy - Fourier Contour Visualizer
 
-A Rust tool that reads 2D contours from YAML files, computes their complex Fourier decomposition, and generates interactive HTML visualizations with animated epicycles.
+A Rust tool that reads 2D contours from YAML files, text strings, or SVG files, computes their complex Fourier decomposition, and generates interactive HTML visualizations with animated epicycles.
 
 ## Live demos
 
+- [Band](https://laurentcarrie.github.io/fluffy-eureka/examples/band.html)
 - [Electric Guitar](https://laurentcarrie.github.io/fluffy-eureka/examples/guitar.html)
 - [Music Note](https://laurentcarrie.github.io/fluffy-eureka/examples/note.html)
 - [Cursive Text "Move"](https://laurentcarrie.github.io/fluffy-eureka/examples/move-the-line.html)
@@ -14,23 +15,132 @@ A Rust tool that reads 2D contours from YAML files, computes their complex Fouri
 
 Any closed 2D shape can be described as a sum of rotating circles (Fourier series). This tool:
 
-1. Reads a contour (sequence of 2D points) from a YAML file
+1. Reads a contour from one of three input sources (YAML points, text string, SVG file)
 2. Interpolates the contour to 1000 evenly-spaced points
 3. Computes the complex Discrete Fourier Transform (DFT)
-4. Generates a self-contained HTML file with an animated visualization
+4. Generates two self-contained HTML files: a full interactive page and a minimal embed version
 
 The animation shows epicycles (rotating circles) that, when chained together, trace out the original shape. As more harmonics are added, the approximation gets closer to the original contour.
 
-## Usage
+## CLI
+
+The tool uses subcommands for different input types:
+
+### From YAML points
 
 ```bash
-cargo run --bin contour2html -- examples/guitar.yml
+cargo run --bin contour2html -- points examples/guitar.yml
 open examples/guitar.html
 ```
 
-This reads `guitar.yml` and produces `guitar.html` — a self-contained interactive page.
+Reads `guitar.yml` and the matching config `guitar-config.yml`, producing `guitar.html` and `guitar-embed.html`.
 
-## YAML format
+### From text
+
+```bash
+cargo run --bin contour2html -- text --font "TimesNewRomanPSMT" "Hello World"
+open hello-world.html
+```
+
+Renders text using a system font and generates the visualization. Use `list-fonts` to find available font PostScript names:
+
+```bash
+cargo run --bin contour2html -- list-fonts
+```
+
+### From SVG
+
+```bash
+cargo run --bin contour2html -- svg examples/band.svg
+open examples/band.html
+```
+
+Extracts `<path>` data from an SVG file. Supports absolute and relative M, L, C, Q, H, V, Z commands with bezier curve sampling.
+
+### Generate default config
+
+```bash
+cargo run --bin contour2html -- init-config my-config.yml
+```
+
+All subcommands accept `--config <file>` to specify a config YAML and `-o <stem>` to set the output file stem.
+
+## Config format
+
+The config file controls animation behavior and display options:
+
+```yaml
+speed: 3.0
+steps:
+  thresholds:
+  - start: 10
+    step: 1
+  - start: 20
+    step: 5
+  - start: 100
+    step: 10
+  max_harmonic: 100
+show_contour: Never          # Always, Never, or !OnceEvery {modulo: N, remainders: [0]}
+show_point: true
+show_trace: Always
+trace_length: 0.5
+opacity: 0.5
+show_nh: true
+trace_width: 1.0
+contour_width: 1.0
+show_fourier_circles: Always
+trace_colors:
+- red
+- lime
+- dodgerblue
+- gold
+- hotpink
+- cyan
+- orange
+```
+
+### Harmonic steps
+
+The `steps` field controls how harmonics progress across animation loops. The format `thresholds` + `max_harmonic` works as follows:
+
+- Start at `nh = first threshold's start`, with `increment = first threshold's step`
+- At each loop, `nh += increment`
+- When `nh >= next threshold's start`, `increment` changes to that threshold's step
+- When `nh >= max_harmonic`, stop
+
+For example, with thresholds `[(10, 1), (20, 5), (100, 10)]` and `max_harmonic: 1000`:
+- nh = 10, 11, 12, ..., 19 (increment 1)
+- nh = 20, 25, 30, ..., 95 (increment 5)
+- nh = 100, 110, 120, ..., 1000 (increment 10)
+
+The steps schedule is editable in the interactive HTML page using the format `10 1 ; 20 5 ; 100 10 ; 1000`.
+
+### Show modes
+
+Fields `show_contour`, `show_trace`, and `show_fourier_circles` accept:
+
+- `Always` — show on every loop
+- `Never` — never show
+- `!OnceEvery {modulo: N, remainders: [r1, r2, ...]}` — show when `loop_index % N` is in the remainders list
+
+## Interactive controls
+
+The generated full HTML page includes:
+
+- **t slider** — scrub through the parametric position on the contour
+- **Loop display** — current loop index and harmonic count
+- **Start / Stop** — animate the drawing
+- **Speed slider** — control animation speed
+- **Harmonics** — number of Fourier terms used for reconstruction
+- **Steps** — editable harmonic step schedule (`start step ; start step ; ... ; max`)
+- **Contour / Trace / Circles** — select Always, Never, or Every N (with modulo and remainders)
+- **Point** — toggle the drawing position indicator
+- **NH label** — toggle the harmonic count label on the SVG
+- **Opacity** — trace opacity
+- **Trace length** — fraction of the contour retained in the trace
+- **Trace width / Contour width** — stroke widths
+
+## YAML points format
 
 Contour files are simple YAML with a list of `[x, y]` points:
 
@@ -42,32 +152,6 @@ points:
   - [0.0, 0.0]
 ```
 
-## Interactive controls
-
-The generated HTML page includes:
-
-- **t slider** — scrub through the parametric position on the contour
-- **Start / Stop** — animate the drawing
-- **Speed slider** — control animation speed
-- **Harmonics** — number of Fourier terms used for reconstruction
-- **Show/Hide contour** — toggle the original shape outline
-- **Show/Hide point** — toggle the red circle at the current drawing position
-- **Show/Hide trace** — toggle the trace left by the drawing point
-- **Trace length** — max number of points in the trace
-- **Opacity slider** — manual trace opacity control
-- **Auto opacity** — automatically cycles opacity and harmonics count across loops, with color changes
-
-## Auto mode
-
-When auto opacity is enabled, the visualization cycles through increasing numbers of harmonics. At each loop:
-
-- Harmonics count steps through: 1, 2, 3, ..., 9, 10, 15, 20, 30, ..., 90, 100, 200, ...
-- Opacity interpolates from 0.2 to 0.8
-- Trace color changes each loop
-- Speed interpolates across loops
-
-This creates a progressive reveal effect showing how the Fourier approximation converges to the original shape.
-
 ## Examples
 
 | File | Description |
@@ -76,21 +160,27 @@ This creates a progressive reveal effect showing how the Fourier approximation c
 | `examples/cardioid.yml` | Cardioid curve |
 | `examples/move-the-line.yml` | Cursive text "Move" |
 | `examples/note.yml` | Music note symbol |
-| `examples/guitar.yml` | Electric guitar (from SVG) |
+| `examples/guitar.yml` | Electric guitar |
+| `examples/band.svg` | Band silhouette (SVG input) |
 
 ## Project structure
 
 ```
 src/
   lib.rs          — Library crate root
-  model.rs        — Contour, ContourFunction, Fourier decomposition
-  svg.rs          — SVG path generation and HTML template
-  main.rs         — Default binary (unused)
+  contour.rs      — Contour, ContourFunction, Fourier decomposition
+  model.rs        — EmbedOptions, HarmonicSteps, WhenToShow config types
+  svg.rs          — SVG path parsing, HTML generation
+  text.rs         — Text-to-SVG-path using system fonts
+  main.rs         — Default binary
   test.rs         — Unit tests
   bin/
-    contour2html.rs — CLI binary
+    contour2html.rs — CLI binary (clap subcommands)
 examples/
   *.yml           — Contour data files
+  *-config.yml    — Config files
+  *.html          — Generated full interactive pages
+  *-embed.html    — Generated minimal embed pages
 ```
 
 ## Building
@@ -102,4 +192,7 @@ cargo test
 
 ## Dependencies
 
-- `serde` + `serde_yaml` — YAML deserialization
+- `clap` — CLI argument parsing with subcommands
+- `serde` + `serde_yaml` — YAML serialization/deserialization
+- `ttf-parser` — Font glyph outline extraction
+- `font-kit` — System font lookup

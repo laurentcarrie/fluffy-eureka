@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.2.0
+
+### CLI
+- Switched from positional args to clap subcommands: `points`, `text`, `svg`, `list-fonts`, `init-config`
+- `text` subcommand: render text with a system font (via `ttf-parser` + `font-kit`)
+- `svg` subcommand: extract `<path>` data from SVG files with full command support (M, L, C, Q, H, V, Z, absolute and relative)
+- `list-fonts` subcommand: enumerate available system font PostScript names
+- `init-config` subcommand: generate a default config YAML file
+- All input subcommands accept `--config` and `-o` options
+
+### Config
+- Added `EmbedOptions` config struct with YAML serialization
+- Added `WhenToShow` enum: `Always`, `Never`, `OnceEvery { modulo, remainders }` for conditional display per loop
+- Added `trace_colors` field for configurable trace color cycling
+- Added `trace_width`, `contour_width`, `opacity`, `show_nh` fields
+- Added validation: remainders must be < modulo, modulo must be > 0
+
+### HTML output
+- Full HTML page now has all parameters as interactive controls
+- Contour, Trace, Circles use select dropdowns (Always/Never/Every N) with modulo and remainders inputs
+- Editable harmonic steps schedule in `start step ; start step ; ... ; max` format
+- Loop display on separate line showing loop index and harmonic count
+- Removed auto-opacity button; replaced with direct controls
+
+### SVG parsing
+- Rewrote `points_of_svg_path` to handle absolute/relative commands
+- Cubic bezier (C/c) and quadratic bezier (Q/q) sampling (8 points per curve)
+- H/h, V/v line commands
+- Proper tokenization for negative numbers without separators
+- Y-flip for SVGs with negative Y scale transforms
+
+### Harmonic steps
+- Changed step semantics: start at first threshold, increment changes at each threshold boundary, stop at max_harmonic
+- Steps are editable live in the HTML page
+
 ## 0.1.0
 
 ### Core
