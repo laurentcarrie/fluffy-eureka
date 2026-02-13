@@ -1,169 +1,126 @@
-pub trait ContourFunction {
-    fn x(&self, t: f64) -> f64;
-    fn y(&self, t: f64) -> f64;
+use serde::{Deserialize, Serialize};
 
-    fn with_offset(self, x_offset: f64, y_offset: f64) -> OffsetContourFunction<Self>
-    where
-        Self: Sized,
-    {
-        OffsetContourFunction {
-            inner: self,
-            x_offset,
-            y_offset,
+#[derive(Serialize, Deserialize)]
+pub struct ThresholdStep {
+    pub start: usize,
+    pub step: usize,
+}
+
+/// Harmonic step schedule: thresholds with increments, plus a final increment.
+///
+/// For example, thresholds `[(10, 1), (20, 5), (100, 10)]` with `max_harmonic: 100`
+/// means: below 10 step by 1, below 20 step by 5, below 100 step by 10, else step by 100.
+#[derive(Serialize, Deserialize)]
+pub struct HarmonicSteps {
+    pub thresholds: Vec<ThresholdStep>,
+    pub max_harmonic: usize,
+}
+
+impl Default for HarmonicSteps {
+    fn default() -> Self {
+        Self {
+            thresholds: vec![
+                ThresholdStep { start: 10, step: 1 },
+                ThresholdStep { start: 20, step: 5 },
+                ThresholdStep {
+                    start: 100,
+                    step: 10,
+                },
+            ],
+            max_harmonic: 100,
         }
     }
 }
 
-pub struct OffsetContourFunction<T: ContourFunction> {
-    inner: T,
-    x_offset: f64,
-    y_offset: f64,
+#[derive(Serialize, Deserialize)]
+pub struct OnceEvery {
+    pub modulo: usize,
+    pub remainders: Vec<usize>,
 }
 
-impl<T: ContourFunction> ContourFunction for OffsetContourFunction<T> {
-    fn x(&self, t: f64) -> f64 {
-        self.inner.x(t) + self.x_offset
-    }
-
-    fn y(&self, t: f64) -> f64 {
-        self.inner.y(t) + self.y_offset
-    }
-}
-
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub struct Contour {
-    pub points: Vec<(f64, f64)>,
-}
-
-struct ContourFunctionImpl {
-    points: Vec<(f64, f64)>,
-}
-
-impl ContourFunction for ContourFunctionImpl {
-    fn x(&self, t: f64) -> f64 {
-        let n = self.points.len();
-        if n == 0 {
-            return 0.0;
+impl OnceEvery {
+    pub fn validate(&self, field: &str) -> Result<(), String> {
+        if self.modulo == 0 {
+            return Err(format!("{field}: modulo must be > 0"));
         }
-        if n == 1 {
-            return self.points[0].0;
+        for &r in &self.remainders {
+            if r >= self.modulo {
+                return Err(format!(
+                    "{field}: remainder {r} must be < modulo {}",
+                    self.modulo
+                ));
+            }
         }
-        let t = t.clamp(0.0, 1.0);
-        let scaled = t * (n - 1) as f64;
-        let i = scaled.floor() as usize;
-        if i >= n - 1 {
-            return self.points[n - 1].0;
-        }
-        let frac = scaled - i as f64;
-        self.points[i].0 * (1.0 - frac) + self.points[i + 1].0 * frac
-    }
-
-    fn y(&self, t: f64) -> f64 {
-        let n = self.points.len();
-        if n == 0 {
-            return 0.0;
-        }
-        if n == 1 {
-            return self.points[0].1;
-        }
-        let t = t.clamp(0.0, 1.0);
-        let scaled = t * (n - 1) as f64;
-        let i = scaled.floor() as usize;
-        if i >= n - 1 {
-            return self.points[n - 1].1;
-        }
-        let frac = scaled - i as f64;
-        self.points[i].1 * (1.0 - frac) + self.points[i + 1].1 * frac
+        Ok(())
     }
 }
 
-pub fn f_of_contour(contour: &Contour) -> impl ContourFunction {
-    ContourFunctionImpl {
-        points: contour.points.clone(),
-    }
+#[derive(Serialize, Deserialize)]
+pub enum WhenToShow {
+    Always,
+    Never,
+    OnceEvery(OnceEvery),
 }
 
-pub fn interpolate(contour: &Contour, n: usize) -> Contour {
-    let f = f_of_contour(contour);
-    let points = (0..n)
-        .map(|i| {
-            let t = i as f64 / (n - 1) as f64;
-            (f.x(t), f.y(t))
-        })
-        .collect();
-    Contour { points }
+#[derive(Serialize, Deserialize)]
+pub struct EmbedOptions {
+    pub speed: f64,
+    pub steps: HarmonicSteps,
+    pub show_contour: WhenToShow,
+    pub show_point: bool,
+    pub show_trace: WhenToShow,
+    pub trace_length: f64,
+    pub opacity: f64,
+    pub show_nh: bool,
+    pub trace_width: f64,
+    pub contour_width: f64,
+    pub show_fourier_circles: WhenToShow,
+    #[serde(default = "default_trace_colors")]
+    pub trace_colors: Vec<String>,
 }
 
-/// Complex Fourier coefficient: c_k = re + i*im, frequency k
-/// At time t, contributes: (re*cos(2πkt) - im*sin(2πkt), im*cos(2πkt) + re*sin(2πkt))
-/// This traces a circle of radius |c_k|.
-#[derive(Clone)]
-pub struct ComplexCoeff {
-    pub freq: i32,
-    pub re: f64,
-    pub im: f64,
+fn default_trace_colors() -> Vec<String> {
+    vec![
+        "red".into(),
+        "lime".into(),
+        "dodgerblue".into(),
+        "gold".into(),
+        "hotpink".into(),
+        "cyan".into(),
+        "orange".into(),
+    ]
 }
 
-impl ComplexCoeff {
-    pub fn radius(&self) -> f64 {
-        (self.re * self.re + self.im * self.im).sqrt()
-    }
-}
-
-pub struct FourierDecomposition {
-    pub coeffs: Vec<ComplexCoeff>, // sorted by descending radius
-}
-
-impl FourierDecomposition {
-    pub fn eval(&self, t: f64) -> (f64, f64) {
-        let two_pi = 2.0 * std::f64::consts::PI;
-        let mut x = 0.0;
-        let mut y = 0.0;
-        for c in &self.coeffs {
-            let angle = two_pi * c.freq as f64 * t;
-            x += c.re * angle.cos() - c.im * angle.sin();
-            y += c.im * angle.cos() + c.re * angle.sin();
+impl EmbedOptions {
+    pub fn validate(&self) -> Result<(), String> {
+        if let WhenToShow::OnceEvery(e) = &self.show_contour {
+            e.validate("show_contour")?;
         }
-        (x, y)
+        if let WhenToShow::OnceEvery(e) = &self.show_trace {
+            e.validate("show_trace")?;
+        }
+        if let WhenToShow::OnceEvery(e) = &self.show_fourier_circles {
+            e.validate("show_fourier_circles")?;
+        }
+        Ok(())
     }
 }
 
-pub fn fourier_decomposition(contour: &Contour, num_terms: usize) -> FourierDecomposition {
-    let n = contour.points.len();
-    let two_pi = 2.0 * std::f64::consts::PI;
-
-    // Compute complex DFT: c_k = (1/N) * sum_{j=0}^{N-1} z_j * e^{-2πi k j / N}
-    // where z_j = x_j + i*y_j
-    let mut coeffs = Vec::new();
-
-    // k = 0 (DC term), then k = 1, -1, 2, -2, ...
-    let max_k = num_terms as i32;
-    let mut freqs: Vec<i32> = vec![0];
-    for k in 1..=max_k {
-        freqs.push(k);
-        freqs.push(-k);
-    }
-
-    for &k in &freqs {
-        let mut re = 0.0;
-        let mut im = 0.0;
-        for j in 0..n {
-            let angle = -two_pi * k as f64 * j as f64 / n as f64;
-            let xj = contour.points[j].0;
-            let yj = contour.points[j].1;
-            // (xj + i*yj) * (cos(angle) + i*sin(angle))
-            re += xj * angle.cos() - yj * angle.sin();
-            im += xj * angle.sin() + yj * angle.cos();
+impl Default for EmbedOptions {
+    fn default() -> Self {
+        Self {
+            speed: 3.0,
+            steps: HarmonicSteps::default(),
+            show_contour: WhenToShow::Never,
+            show_point: true,
+            show_trace: WhenToShow::Always,
+            trace_length: 0.5,
+            opacity: 0.5,
+            show_nh: true,
+            trace_width: 1.0,
+            contour_width: 1.0,
+            show_fourier_circles: WhenToShow::Always,
+            trace_colors: default_trace_colors(),
         }
-        re /= n as f64;
-        im /= n as f64;
-        coeffs.push(ComplexCoeff { freq: k, re, im });
     }
-
-    // Sort by descending radius for best visual convergence
-    coeffs.sort_by(|a, b| b.radius().partial_cmp(&a.radius()).unwrap());
-
-    FourierDecomposition { coeffs }
 }

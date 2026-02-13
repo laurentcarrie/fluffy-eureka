@@ -1,17 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use fluffy::model::{Contour, ContourFunction, f_of_contour, fourier_decomposition};
-    use fluffy::svg::{svg_path_of_contour, html_of_svg_path};
+    use crate::contour::{Contour, ContourFunction, f_of_contour, fourier_decomposition};
+    use crate::model::EmbedOptions;
+    use crate::svg::{html_of_svg_path, svg_path_of_contour};
 
     #[test]
     fn test_square() {
         let square = Contour {
-            points: vec![
-                (0.0, 0.0),
-                (1.0, 0.0),
-                (1.0, 1.0),
-                (0.0, 0.0),
-            ],
+            points: vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)],
         };
         assert_eq!(square.points.len(), 4);
     }
@@ -19,12 +15,7 @@ mod tests {
     #[test]
     fn test_f_of_contour_square() {
         let square = Contour {
-            points: vec![
-                (0.0, 0.0),
-                (1.0, 0.0),
-                (1.0, 1.0),
-                (0.0, 0.0),
-            ],
+            points: vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)],
         };
         let f = f_of_contour(&square);
 
@@ -60,10 +51,7 @@ mod tests {
     #[test]
     fn test_f_of_contour_vertical_line() {
         let contour = Contour {
-            points: vec![
-                (3.0, 0.0),
-                (3.0, 5.0),
-            ],
+            points: vec![(3.0, 0.0), (3.0, 5.0)],
         };
         let f = f_of_contour(&contour);
 
@@ -75,12 +63,7 @@ mod tests {
     #[test]
     fn test_with_offset() {
         let contour = Contour {
-            points: vec![
-                (0.0, 0.0),
-                (1.0, 0.0),
-                (1.0, 1.0),
-                (0.0, 0.0),
-            ],
+            points: vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)],
         };
         let f = f_of_contour(&contour).with_offset(10.0, 20.0);
 
@@ -100,12 +83,7 @@ mod tests {
     #[test]
     fn test_svg_path_of_contour_square() {
         let square = Contour {
-            points: vec![
-                (0.0, 0.0),
-                (1.0, 0.0),
-                (1.0, 1.0),
-                (0.0, 0.0),
-            ],
+            points: vec![(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)],
         };
         let path = svg_path_of_contour(&square);
         assert_eq!(path, "M 0 0 L 1 0 L 1 1 L 0 0");
@@ -121,7 +99,8 @@ mod tests {
     #[test]
     fn test_html_of_svg_path() {
         let path = "M 0 0 L 1 0 L 1 1 L 0 0";
-        let html = html_of_svg_path(path);
+        let opts = EmbedOptions::default();
+        let html = html_of_svg_path(path, &opts);
         assert!(html.contains("<html>"));
         assert!(html.contains("<svg"));
         assert!(html.contains(&format!("d=\"{}\"", path)));
@@ -156,12 +135,21 @@ mod tests {
         // Actually for x+iy = 50+50i + 20*(cos+isin), c_1 should have radius 20
         // but we need to check: c_1 = (1/N) sum (x_j+iy_j) e^{-2πij/N}
         let c1 = fd.coeffs.iter().find(|c| c.freq == 1).unwrap();
-        assert!((c1.radius() - 20.0).abs() < eps, "c1 radius: {}", c1.radius());
+        assert!(
+            (c1.radius() - 20.0).abs() < eps,
+            "c1 radius: {}",
+            c1.radius()
+        );
 
         // Higher frequency terms should be ~0
         for c in &fd.coeffs {
             if c.freq != 0 && c.freq != 1 {
-                assert!(c.radius() < eps, "freq {} has radius {}", c.freq, c.radius());
+                assert!(
+                    c.radius() < eps,
+                    "freq {} has radius {}",
+                    c.freq,
+                    c.radius()
+                );
             }
         }
 
@@ -172,8 +160,20 @@ mod tests {
             let orig_t = 2.0 * std::f64::consts::PI * i as f64 / n as f64;
             let ox = 50.0 + 20.0 * orig_t.cos();
             let oy = 50.0 + 20.0 * orig_t.sin();
-            assert!((rx - ox).abs() < eps, "x mismatch at i={}: {} vs {}", i, rx, ox);
-            assert!((ry - oy).abs() < eps, "y mismatch at i={}: {} vs {}", i, ry, oy);
+            assert!(
+                (rx - ox).abs() < eps,
+                "x mismatch at i={}: {} vs {}",
+                i,
+                rx,
+                ox
+            );
+            assert!(
+                (ry - oy).abs() < eps,
+                "y mismatch at i={}: {} vs {}",
+                i,
+                ry,
+                oy
+            );
         }
     }
 }

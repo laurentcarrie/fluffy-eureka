@@ -1,8 +1,16 @@
 [package]
-name = "fluffy"
+name = "circles-sketch"
 version = "0.1.0"
 edition = "2024"
+description = "Generate interactive Fourier epicycle animations from contours, text, or SVG files"
+license = "MIT"
+repository = "https://github.com/laurentcarrie/fluffy-eureka"
+keywords = ["fourier", "epicycle", "svg", "animation", "visualization"]
+categories = ["visualization", "command-line-utilities"]
 
 [dependencies]
+clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.9"
+ttf-parser = "0.25"
+font-kit = "0.14"

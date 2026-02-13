@@ -1,0 +1,19 @@
+speed: 3.0
+steps:
+  thresholds:
+  - start: 10
+    step: 1
+  - start: 20
+    step: 5
+  - start: 100
+    step: 10
+  max_harmonic: 100
+show_contour: Never
+show_point: true
+show_trace: Always
+trace_length: 0.5
+opacity: 0.5
+show_nh: true
+trace_width: 1.0
+contour_width: 1.0
+show_fourier_circles: Always
