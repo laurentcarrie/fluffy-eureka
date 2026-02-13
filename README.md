@@ -1,6 +1,14 @@
-# Fluffy - Fourier Contour Visualizer
+# circles-sketch
 
 A Rust tool that reads 2D contours from YAML files, text strings, or SVG files, computes their complex Fourier decomposition, and generates interactive HTML visualizations with animated epicycles.
+
+[![crates.io](https://img.shields.io/crates/v/circles-sketch.svg)](https://crates.io/crates/circles-sketch)
+
+## Install
+
+```bash
+cargo install circles-sketch
+```
 
 ## Live demos
 
@@ -29,7 +37,7 @@ The tool uses subcommands for different input types:
 ### From YAML points
 
 ```bash
-cargo run --bin contour2html -- points examples/guitar.yml
+circles-sketch points examples/guitar.yml
 open examples/guitar.html
 ```
 
@@ -38,20 +46,20 @@ Reads `guitar.yml` and the matching config `guitar-config.yml`, producing `guita
 ### From text
 
 ```bash
-cargo run --bin contour2html -- text --font "TimesNewRomanPSMT" "Hello World"
+circles-sketch text --font "TimesNewRomanPSMT" "Hello World"
 open hello-world.html
 ```
 
 Renders text using a system font and generates the visualization. Use `list-fonts` to find available font PostScript names:
 
 ```bash
-cargo run --bin contour2html -- list-fonts
+circles-sketch list-fonts
 ```
 
 ### From SVG
 
 ```bash
-cargo run --bin contour2html -- svg examples/band.svg
+circles-sketch svg examples/band.svg
 open examples/band.html
 ```
 
@@ -60,7 +68,7 @@ Extracts `<path>` data from an SVG file. Supports absolute and relative M, L, C,
 ### Generate default config
 
 ```bash
-cargo run --bin contour2html -- init-config my-config.yml
+circles-sketch init-config my-config.yml
 ```
 
 All subcommands accept `--config <file>` to specify a config YAML and `-o <stem>` to set the output file stem.
@@ -131,8 +139,7 @@ The generated full HTML page includes:
 - **Loop display** — current loop index and harmonic count
 - **Start / Stop** — animate the drawing
 - **Speed slider** — control animation speed
-- **Harmonics** — number of Fourier terms used for reconstruction
-- **Steps** — editable harmonic step schedule (`start step ; start step ; ... ; max`)
+- **Harmonics loop** — editable harmonic step schedule (`start step ; start step ; ... ; max`)
 - **Contour / Trace / Circles** — select Always, Never, or Every N (with modulo and remainders)
 - **Point** — toggle the drawing position indicator
 - **NH label** — toggle the harmonic count label on the SVG
@@ -158,7 +165,7 @@ points:
 |------|-------------|
 | `examples/square.yml` | Simple square |
 | `examples/cardioid.yml` | Cardioid curve |
-| `examples/move-the-line.yml` | Cursive text "Move" |
+| `examples/move-the-line` | "Move The Line" text (AkayaTelivigala font) |
 | `examples/note.yml` | Music note symbol |
 | `examples/guitar.yml` | Electric guitar |
 | `examples/band.svg` | Band silhouette (SVG input) |
@@ -172,10 +179,9 @@ src/
   model.rs        — EmbedOptions, HarmonicSteps, WhenToShow config types
   svg.rs          — SVG path parsing, HTML generation
   text.rs         — Text-to-SVG-path using system fonts
-  main.rs         — Default binary
   test.rs         — Unit tests
   bin/
-    contour2html.rs — CLI binary (clap subcommands)
+    circles-sketch.rs — CLI binary (clap subcommands)
 examples/
   *.yml           — Contour data files
   *-config.yml    — Config files
