@@ -2,6 +2,10 @@
 
 ## 0.2.0
 
+### Package
+- Renamed package and binary to `circles-sketch`
+- Published to [crates.io](https://crates.io/crates/circles-sketch)
+
 ### CLI
 - Switched from positional args to clap subcommands: `points`, `text`, `svg`, `list-fonts`, `init-config`
 - `text` subcommand: render text with a system font (via `ttf-parser` + `font-kit`)
@@ -65,7 +69,7 @@
 - Black background with white text
 
 ### CLI
-- `contour2html` binary: reads YAML, outputs self-contained HTML
+- `circles-sketch` binary: reads YAML, outputs self-contained HTML
 - Interpolates to 1000 points and computes N/2 Fourier terms
 
 ### Examples
