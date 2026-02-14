@@ -1,3 +1,4 @@
+num_points: 1000
 speed: 5.0
 steps:
   thresholds:

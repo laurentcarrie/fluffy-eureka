@@ -64,6 +64,7 @@ pub enum WhenToShow {
 
 #[derive(Serialize, Deserialize)]
 pub struct EmbedOptions {
+    pub num_points: usize,
     pub speed: f64,
     pub steps: HarmonicSteps,
     pub show_contour: WhenToShow,
@@ -109,6 +110,7 @@ impl EmbedOptions {
 impl Default for EmbedOptions {
     fn default() -> Self {
         Self {
+            num_points: 1000,
             speed: 3.0,
             steps: HarmonicSteps::default(),
             show_contour: WhenToShow::Never,
