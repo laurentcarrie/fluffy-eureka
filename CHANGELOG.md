@@ -7,6 +7,8 @@
 - Published to [crates.io](https://crates.io/crates/circles-sketch)
 
 ### CLI
+- Added `-n` / `--num-points` global option for interpolation point count (default: 1000)
+- Added `--flip-y` global flag to flip Y coordinates
 - Switched from positional args to clap subcommands: `points`, `text`, `svg`, `list-fonts`, `init-config`
 - `text` subcommand: render text with a system font (via `ttf-parser` + `font-kit`)
 - `svg` subcommand: extract `<path>` data from SVG files with full command support (M, L, C, Q, H, V, Z, absolute and relative)
@@ -22,6 +24,7 @@
 - Added validation: remainders must be < modulo, modulo must be > 0
 
 ### HTML output
+- Clear trace and hide Fourier circles at the end of each animation loop
 - Full HTML page now has all parameters as interactive controls
 - Contour, Trace, Circles use select dropdowns (Always/Never/Every N) with modulo and remainders inputs
 - Editable harmonic steps schedule in `start step ; start step ; ... ; max` format
@@ -33,7 +36,7 @@
 - Cubic bezier (C/c) and quadratic bezier (Q/q) sampling (8 points per curve)
 - H/h, V/v line commands
 - Proper tokenization for negative numbers without separators
-- Y-flip for SVGs with negative Y scale transforms
+- Y-flip via `--flip-y` flag (no longer applied automatically)
 
 ### Harmonic steps
 - Changed step semantics: start at first threshold, increment changes at each threshold boundary, stop at max_harmonic
