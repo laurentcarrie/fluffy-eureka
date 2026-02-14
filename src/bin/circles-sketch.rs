@@ -18,9 +18,9 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    /// Number of interpolation points (default: 1000)
-    #[arg(short = 'n', long, default_value_t = 1000)]
-    num_points: usize,
+    /// Number of interpolation points (overrides config, default: 1000)
+    #[arg(short = 'n', long)]
+    num_points: Option<usize>,
 
     /// Flip Y coordinates (for SVGs with negative Y scale transforms)
     #[arg(long)]
@@ -124,7 +124,13 @@ fn main() {
     }
 }
 
-fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str, num_points: usize, flip_y: bool) {
+fn generate(
+    mut contour: Contour,
+    opts: EmbedOptions,
+    stem: &str,
+    num_points: Option<usize>,
+    flip_y: bool,
+) {
     opts.validate().unwrap_or_else(|e| {
         eprintln!("Invalid config: {e}");
         std::process::exit(1);
@@ -134,7 +140,8 @@ fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str, num_points: us
             p.1 = -p.1;
         }
     }
-    let contour = interpolate(&contour, num_points);
+    let n = num_points.unwrap_or(opts.num_points);
+    let contour = interpolate(&contour, n);
     let svg_path = svg_path_of_contour(&contour);
     let max_terms = contour.points.len() / 2;
     let fd = fourier_decomposition(&contour, max_terms);
