@@ -838,6 +838,8 @@ function animate(timestamp) {{
   currentT += dt * speed * 0.1;
   if (currentT > 1) {{
     currentT -= 1;
+    traceHistory = [];
+    fourierGroup.style.display = "none";
     loopIndex = (loopIndex + 1) % totalLoops;
     applyLoopParams();
   }}
@@ -1142,6 +1144,8 @@ function animate(timestamp) {{
   currentT += dt * speed * 0.1;
   if (currentT > 1) {{
     currentT -= 1;
+    traceHistory = [];
+    document.getElementById("fourier-group").style.display = "none";
     loopIndex = (loopIndex + 1) % totalLoops;
     applyLoopParams();
   }}

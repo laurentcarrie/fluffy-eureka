@@ -17,6 +17,14 @@ use font_kit::source::SystemSource;
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    /// Number of interpolation points (default: 1000)
+    #[arg(short = 'n', long, default_value_t = 1000)]
+    num_points: usize,
+
+    /// Flip Y coordinates (for SVGs with negative Y scale transforms)
+    #[arg(long)]
+    flip_y: bool,
 }
 
 #[derive(Subcommand)]
@@ -87,7 +95,7 @@ fn main() {
             output,
         } => {
             let (contour, opts, stem) = load_points(&file, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem);
+            generate(contour, opts, &stem, cli.num_points, cli.flip_y);
         }
         Command::Text {
             text,
@@ -97,7 +105,7 @@ fn main() {
         } => {
             let (contour, opts, stem) =
                 load_text(&text, &font, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem);
+            generate(contour, opts, &stem, cli.num_points, cli.flip_y);
         }
         Command::Svg {
             file,
@@ -105,7 +113,7 @@ fn main() {
             output,
         } => {
             let (contour, opts, stem) = load_svg(&file, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem);
+            generate(contour, opts, &stem, cli.num_points, cli.flip_y);
         }
         Command::ListFonts => {
             list_fonts();
@@ -116,12 +124,17 @@ fn main() {
     }
 }
 
-fn generate(contour: Contour, opts: EmbedOptions, stem: &str) {
+fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str, num_points: usize, flip_y: bool) {
     opts.validate().unwrap_or_else(|e| {
         eprintln!("Invalid config: {e}");
         std::process::exit(1);
     });
-    let contour = interpolate(&contour, 1000);
+    if flip_y {
+        for p in &mut contour.points {
+            p.1 = -p.1;
+        }
+    }
+    let contour = interpolate(&contour, num_points);
     let svg_path = svg_path_of_contour(&contour);
     let max_terms = contour.points.len() / 2;
     let fd = fourier_decomposition(&contour, max_terms);
@@ -245,11 +258,6 @@ fn load_svg(
     if all_points.is_empty() {
         eprintln!("No path data found in {}", input_path.display());
         std::process::exit(1);
-    }
-
-    // Flip Y — many SVGs use a negative Y scale transform
-    for p in &mut all_points {
-        p.1 = -p.1;
     }
 
     let contour = Contour { points: all_points };

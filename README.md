@@ -24,7 +24,7 @@ cargo install circles-sketch
 Any closed 2D shape can be described as a sum of rotating circles (Fourier series). This tool:
 
 1. Reads a contour from one of three input sources (YAML points, text string, SVG file)
-2. Interpolates the contour to 1000 evenly-spaced points
+2. Interpolates the contour to N evenly-spaced points (default 1000, configurable with `-n`)
 3. Computes the complex Discrete Fourier Transform (DFT)
 4. Generates two self-contained HTML files: a full interactive page and a minimal embed version
 
@@ -59,11 +59,11 @@ circles-sketch list-fonts
 ### From SVG
 
 ```bash
-circles-sketch svg examples/band.svg
+circles-sketch --flip-y svg examples/band.svg
 open examples/band.html
 ```
 
-Extracts `<path>` data from an SVG file. Supports absolute and relative M, L, C, Q, H, V, Z commands with bezier curve sampling.
+Extracts `<path>` data from an SVG file. Supports absolute and relative M, L, C, Q, H, V, Z commands with bezier curve sampling. Use `--flip-y` for SVGs with negative Y scale transforms.
 
 ### Generate default config
 
@@ -71,7 +71,12 @@ Extracts `<path>` data from an SVG file. Supports absolute and relative M, L, C,
 circles-sketch init-config my-config.yml
 ```
 
-All subcommands accept `--config <file>` to specify a config YAML and `-o <stem>` to set the output file stem.
+### Global options
+
+- `--config <file>` — specify a config YAML
+- `-o <stem>` — set the output file stem
+- `-n <N>` / `--num-points <N>` — number of interpolation points (default: 1000)
+- `--flip-y` — flip Y coordinates (for SVGs with negative Y scale transforms)
 
 ## Config format
 
