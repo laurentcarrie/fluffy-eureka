@@ -30,6 +30,50 @@ Any closed 2D shape can be described as a sum of rotating circles (Fourier serie
 
 The animation shows epicycles (rotating circles) that, when chained together, trace out the original shape. As more harmonics are added, the approximation gets closer to the original contour.
 
+```mermaid
+graph LR
+    subgraph Inputs
+        YAML["YAML points<br/><i>guitar.yml</i>"]
+        TEXT["Text + Font<br/><i>'Hello' + Arial</i>"]
+        SVG["SVG file<br/><i>band.svg</i>"]
+        CFG["Config YAML<br/><i>*-config.yml</i>"]
+    end
+
+    YAML -->|serde_yaml::from_str| C["Contour<br/>Vec&lt;(f64,f64)&gt;"]
+    TEXT -->|svg_path_of_text| SP["SVG path string"]
+    SVG -->|extract &lt;path&gt; d=| SP
+    SP -->|points_of_svg_path| C
+
+    C -->|"interpolate(n)"| IC["Interpolated<br/>Contour"]
+    IC -->|svg_path_of_contour| SVGPath["SVG path"]
+    IC -->|fourier_decomposition| FD["Fourier<br/>Coefficients"]
+
+    SVGPath --> GEN["html_of_svg_path_with_fourier<br/>embed_html_of_svg_path_with_fourier"]
+    FD --> GEN
+    CFG -->|EmbedOptions| GEN
+
+    subgraph Output
+        HTML["stem.html<br/><i>Full interactive page</i>"]
+        EMBED["stem-embed.html<br/><i>Minimal embed</i>"]
+    end
+
+    GEN --> HTML
+    GEN --> EMBED
+
+    style YAML fill:#4a9eff,color:#fff
+    style TEXT fill:#4a9eff,color:#fff
+    style SVG fill:#4a9eff,color:#fff
+    style CFG fill:#f5a623,color:#fff
+    style C fill:#7b68ee,color:#fff
+    style SP fill:#7b68ee,color:#fff
+    style IC fill:#7b68ee,color:#fff
+    style SVGPath fill:#7b68ee,color:#fff
+    style FD fill:#7b68ee,color:#fff
+    style GEN fill:#e06c75,color:#fff
+    style HTML fill:#50c878,color:#fff
+    style EMBED fill:#50c878,color:#fff
+```
+
 ## CLI
 
 The tool uses subcommands for different input types:
