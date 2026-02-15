@@ -467,9 +467,9 @@ fn svg_markup(p: &Params) -> String {
         vb_y = p.vb_y,
         vb_size = p.vb_size,
         stroke = p.stroke,
-        glow_std = p.vb_size * 0.5 / 100.0,
-        spark_r = p.dot_r * 1.5,
-        spark_core = p.dot_r * 0.25,
+        glow_std = p.vb_size * 1.0 / 100.0,
+        spark_r = p.dot_r * 3.0,
+        spark_core = p.dot_r * 0.5,
         font_size = p.vb_size * 4.0 / 100.0,
     )
 }
@@ -794,8 +794,8 @@ for (let i = 0; i < NUM_PARTICLES; i++) {{
 function updateSpark() {{
   for (let i = 0; i < NUM_RAYS; i++) {{
     const angle = Math.random() * Math.PI * 2;
-    const len = (1.0 + Math.random() * 4.0) * sparkScale;
-    const inner = (0.1 + Math.random() * 0.3) * sparkScale;
+    const len = (2.0 + Math.random() * 6.0) * sparkScale;
+    const inner = (0.2 + Math.random() * 0.5) * sparkScale;
     const cos = Math.cos(angle), sin = Math.sin(angle);
     sparkRayEls[i].setAttribute("x1", cos * inner);
     sparkRayEls[i].setAttribute("y1", sin * inner);
@@ -803,15 +803,15 @@ function updateSpark() {{
     sparkRayEls[i].setAttribute("y2", sin * len);
     const bright = Math.random() > 0.4;
     sparkRayEls[i].setAttribute("stroke", bright ? "gold" : "darkorange");
-    sparkRayEls[i].setAttribute("stroke-width", (0.15 + Math.random() * 0.25) * sparkScale);
+    sparkRayEls[i].setAttribute("stroke-width", (0.3 + Math.random() * 0.5) * sparkScale);
     sparkRayEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.6);
   }}
   for (let i = 0; i < NUM_PARTICLES; i++) {{
     const angle = Math.random() * Math.PI * 2;
-    const dist = (1.0 + Math.random() * 3.0) * sparkScale;
+    const dist = (2.0 + Math.random() * 5.0) * sparkScale;
     sparkParticleEls[i].setAttribute("cx", Math.cos(angle) * dist);
     sparkParticleEls[i].setAttribute("cy", Math.sin(angle) * dist);
-    sparkParticleEls[i].setAttribute("r", (0.05 + Math.random() * 0.15) * sparkScale);
+    sparkParticleEls[i].setAttribute("r", (0.1 + Math.random() * 0.3) * sparkScale);
     sparkParticleEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.5);
   }}
 }}
@@ -1233,8 +1233,8 @@ for (let i = 0; i < NUM_PARTICLES; i++) {{
 function updateSpark() {{
   for (let i = 0; i < NUM_RAYS; i++) {{
     const angle = Math.random() * Math.PI * 2;
-    const len = (1.0 + Math.random() * 4.0) * sparkScale;
-    const inner = (0.1 + Math.random() * 0.3) * sparkScale;
+    const len = (2.0 + Math.random() * 6.0) * sparkScale;
+    const inner = (0.2 + Math.random() * 0.5) * sparkScale;
     const cos = Math.cos(angle), sin = Math.sin(angle);
     sparkRayEls[i].setAttribute("x1", cos * inner);
     sparkRayEls[i].setAttribute("y1", sin * inner);
@@ -1242,15 +1242,15 @@ function updateSpark() {{
     sparkRayEls[i].setAttribute("y2", sin * len);
     const bright = Math.random() > 0.4;
     sparkRayEls[i].setAttribute("stroke", bright ? "gold" : "darkorange");
-    sparkRayEls[i].setAttribute("stroke-width", (0.15 + Math.random() * 0.25) * sparkScale);
+    sparkRayEls[i].setAttribute("stroke-width", (0.3 + Math.random() * 0.5) * sparkScale);
     sparkRayEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.6);
   }}
   for (let i = 0; i < NUM_PARTICLES; i++) {{
     const angle = Math.random() * Math.PI * 2;
-    const dist = (1.0 + Math.random() * 3.0) * sparkScale;
+    const dist = (2.0 + Math.random() * 5.0) * sparkScale;
     sparkParticleEls[i].setAttribute("cx", Math.cos(angle) * dist);
     sparkParticleEls[i].setAttribute("cy", Math.sin(angle) * dist);
-    sparkParticleEls[i].setAttribute("r", (0.05 + Math.random() * 0.15) * sparkScale);
+    sparkParticleEls[i].setAttribute("r", (0.1 + Math.random() * 0.3) * sparkScale);
     sparkParticleEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.5);
   }}
 }}
