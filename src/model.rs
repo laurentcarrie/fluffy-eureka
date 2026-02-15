@@ -144,7 +144,7 @@ impl Default for EmbedOptions {
             trace_length: 0.5,
             opacity: 0.5,
             show_nh: true,
-            trace_width: 1.0,
+            trace_width: 2.0,
             contour_width: 1.0,
             show_fourier_circles: WhenToShow::Always,
             trace_colors: default_trace_colors(),
