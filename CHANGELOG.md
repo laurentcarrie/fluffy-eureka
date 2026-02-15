@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 ### Config
 - Moved `speed` from top-level `EmbedOptions` into `HarmonicRange` — each range now has its own animation speed
