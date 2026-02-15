@@ -1,19 +1,11 @@
-num_points: 1000
+max_harmonics: 3
 steps:
   ranges:
   - from: 1
     step: 1
-    to: 10
-    speed: 3.0
-  - from: 10
-    step: 5
-    to: 20
-    speed: 3.0
-  - from: 20
-    step: 10
-    to: 100
-    speed: 3.0
-show_contour: Never
+    to: 5
+    speed: 2.0
+show_contour: Always
 show_point: true
 show_trace: Always
 trace_length: 0.5

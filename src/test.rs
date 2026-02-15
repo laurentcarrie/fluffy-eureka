@@ -100,7 +100,7 @@ mod tests {
     fn test_html_of_svg_path() {
         let path = "M 0 0 L 1 0 L 1 1 L 0 0";
         let opts = EmbedOptions::default();
-        let html = html_of_svg_path(path, &opts);
+        let html = html_of_svg_path(path, &opts, None);
         assert!(html.contains("<html>"));
         assert!(html.contains("<svg"));
         assert!(html.contains(&format!("d=\"{}\"", path)));
