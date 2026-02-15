@@ -78,6 +78,26 @@ enum Command {
 }
 
 fn main() {
+    let command_line: String = std::env::args()
+        .enumerate()
+        .map(|(i, a)| {
+            let a = if i == 0 {
+                std::path::Path::new(&a)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or(a)
+            } else {
+                a
+            };
+            if a.contains(|c: char| c.is_whitespace() || c == '\'' || c == '"') {
+                format!("'{}'", a.replace('\'', "'\\''"))
+            } else {
+                a
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+
     let cli = Cli::parse();
 
     match cli.command {
@@ -87,7 +107,7 @@ fn main() {
             output,
         } => {
             let (contour, opts, stem) = load_points(&file, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem);
+            generate(contour, opts, &stem, &command_line);
         }
         Command::Text {
             text,
@@ -97,7 +117,7 @@ fn main() {
         } => {
             let (contour, opts, stem) =
                 load_text(&text, &font, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem);
+            generate(contour, opts, &stem, &command_line);
         }
         Command::Svg {
             file,
@@ -105,7 +125,7 @@ fn main() {
             output,
         } => {
             let (contour, opts, stem) = load_svg(&file, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem);
+            generate(contour, opts, &stem, &command_line);
         }
         Command::ListFonts => {
             list_fonts();
@@ -116,7 +136,7 @@ fn main() {
     }
 }
 
-fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str) {
+fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str, command: &str) {
     opts.validate().unwrap_or_else(|e| {
         eprintln!("Invalid config: {e}");
         std::process::exit(1);
@@ -132,7 +152,8 @@ fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str) {
     let max_terms = contour.points.len() / 2;
     let fd = fourier_decomposition(&contour, max_terms);
 
-    let html = html_of_svg_path_with_fourier(&svg_path, &contour.points, Some(&fd), &opts);
+    let html =
+        html_of_svg_path_with_fourier(&svg_path, &contour.points, Some(&fd), &opts, Some(command));
     let output_path = format!("{stem}.html");
     fs::write(&output_path, &html).unwrap_or_else(|e| {
         eprintln!("Error writing {output_path}: {e}");
