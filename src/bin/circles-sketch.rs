@@ -17,14 +17,6 @@ use font_kit::source::SystemSource;
 struct Cli {
     #[command(subcommand)]
     command: Command,
-
-    /// Number of interpolation points (overrides config, default: 1000)
-    #[arg(short = 'n', long)]
-    num_points: Option<usize>,
-
-    /// Flip Y coordinates (for SVGs with negative Y scale transforms)
-    #[arg(long)]
-    flip_y: bool,
 }
 
 #[derive(Subcommand)]
@@ -95,7 +87,7 @@ fn main() {
             output,
         } => {
             let (contour, opts, stem) = load_points(&file, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem, cli.num_points, cli.flip_y);
+            generate(contour, opts, &stem);
         }
         Command::Text {
             text,
@@ -105,7 +97,7 @@ fn main() {
         } => {
             let (contour, opts, stem) =
                 load_text(&text, &font, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem, cli.num_points, cli.flip_y);
+            generate(contour, opts, &stem);
         }
         Command::Svg {
             file,
@@ -113,7 +105,7 @@ fn main() {
             output,
         } => {
             let (contour, opts, stem) = load_svg(&file, config.as_deref(), output.as_deref());
-            generate(contour, opts, &stem, cli.num_points, cli.flip_y);
+            generate(contour, opts, &stem);
         }
         Command::ListFonts => {
             list_fonts();
@@ -124,23 +116,17 @@ fn main() {
     }
 }
 
-fn generate(
-    mut contour: Contour,
-    opts: EmbedOptions,
-    stem: &str,
-    num_points: Option<usize>,
-    flip_y: bool,
-) {
+fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str) {
     opts.validate().unwrap_or_else(|e| {
         eprintln!("Invalid config: {e}");
         std::process::exit(1);
     });
-    if flip_y {
+    if opts.flip_y {
         for p in &mut contour.points {
             p.1 = -p.1;
         }
     }
-    let n = num_points.unwrap_or(opts.num_points);
+    let n = opts.num_points;
     let contour = interpolate(&contour, n);
     let svg_path = svg_path_of_contour(&contour);
     let max_terms = contour.points.len() / 2;

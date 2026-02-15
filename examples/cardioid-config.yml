@@ -1,14 +1,18 @@
 num_points: 1000
-speed: 3.0
 steps:
-  thresholds:
-  - start: 10
+  ranges:
+  - from: 1
     step: 1
-  - start: 20
+    to: 10
+    speed: 3.0
+  - from: 10
     step: 5
-  - start: 100
+    to: 20
+    speed: 3.0
+  - from: 20
     step: 10
-  max_harmonic: 100
+    to: 100
+    speed: 3.0
 show_contour: Never
 show_point: true
 show_trace: Always

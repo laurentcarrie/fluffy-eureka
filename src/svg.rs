@@ -414,15 +414,12 @@ fn compute_params(
         _ => "null".to_string(),
     };
 
-    let steps_str = {
-        let mut parts: Vec<String> = steps
-            .thresholds
-            .iter()
-            .map(|ts| format!("{} {}", ts.start, ts.step))
-            .collect();
-        parts.push(format!("{}", steps.max_harmonic));
-        parts.join(" ; ")
-    };
+    let steps_str = steps
+        .ranges
+        .iter()
+        .map(|r| format!("{} {} {} {}", r.from, r.step, r.to, r.speed))
+        .collect::<Vec<_>>()
+        .join(" ; ");
 
     Params {
         svg_path: svg_path.to_string(),
@@ -440,10 +437,28 @@ fn compute_params(
 fn svg_markup(p: &Params) -> String {
     format!(
         r#"<svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="{vb_x} {vb_y} {vb_size} {vb_size}" width="500" height="500">
+  <defs>
+    <radialGradient id="sparkGrad">
+      <stop offset="0%" stop-color="white"/>
+      <stop offset="20%" stop-color="lightyellow"/>
+      <stop offset="50%" stop-color="orange"/>
+      <stop offset="80%" stop-color="orangered"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="{glow_std}" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
   <path id="contour-path" d="{svg_path}" fill="none" stroke="white" stroke-width="{stroke}" style="display:none"/>
   <g id="fourier-group"></g>
   <polyline id="trace" fill="none" stroke="red" stroke-width="{stroke}" points="" opacity="0"/>
-  <circle id="dot" cx="0" cy="0" r="{dot_r}" fill="none" stroke="red" stroke-width="{stroke}"/>
+  <g id="dot" filter="url(#glow)">
+    <circle id="spark-glow" cx="0" cy="0" r="{spark_r}" fill="url(#sparkGrad)" opacity="0.9"/>
+    <circle cx="0" cy="0" r="{spark_core}" fill="white"/>
+    <g id="spark-rays"></g>
+    <g id="spark-particles"></g>
+  </g>
   <text id="nh-label" fill="white" font-size="{font_size}" style="pointer-events:none"></text>
 </svg>"#,
         svg_path = p.svg_path,
@@ -451,7 +466,9 @@ fn svg_markup(p: &Params) -> String {
         vb_y = p.vb_y,
         vb_size = p.vb_size,
         stroke = p.stroke,
-        dot_r = p.dot_r,
+        glow_std = p.vb_size * 0.5 / 100.0,
+        spark_r = p.dot_r * 1.5,
+        spark_core = p.dot_r * 0.25,
         font_size = p.vb_size * 4.0 / 100.0,
     )
 }
@@ -496,7 +513,7 @@ fn when_to_show_select_html(id: &str, label: &str, w: &WhenToShow) -> String {
         r#"<label>{label}: <select id="{id}">
     <option value="always"{sel_a}>Always</option>
     <option value="never"{sel_n}>Never</option>
-    <option value="every"{sel_e}>Every N</option>
+    <option value="every"{sel_e}>Modulo</option>
   </select><input type="number" id="{id}M" min="1" value="{modulo}" style="width:45px;{every_display}" title="modulo"/>/<input type="text" id="{id}R" value="{remainders_str}" style="width:80px;{every_display}" title="remainders (comma-separated)" placeholder="0,1,..."/></label>"#,
         label = label,
         id = id,
@@ -529,8 +546,7 @@ fn inner_content_full(p: &Params, opts: &EmbedOptions) -> String {
 <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center">
   <button id="startBtn">Start</button>
   <button id="stopBtn">Stop</button>
-  <label>Speed: <input type="range" id="speedSlider" min="0.1" max="10" step="0.1" value="{speed}" style="width:120px"/> <span id="speedVal">{speed}x</span></label>
-  <label>Harmonics loop: <input type="text" id="stepsInput" value="{steps_str}" style="width:300px;font-family:monospace;font-size:0.85em" title="start step ; start step ; ... ; max_harmonic"/></label>
+  <label>Harmonics loop: <input type="text" id="stepsInput" value="{steps_str}" style="width:400px;font-family:monospace;font-size:0.85em" title="from step to speed ; from step to speed ; ..."/></label>
 </div>
 <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center">
   {contour_select}
@@ -542,7 +558,7 @@ fn inner_content_full(p: &Params, opts: &EmbedOptions) -> String {
 <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center">
   <label>Opacity: <input type="range" id="opacitySlider" min="0" max="1" step="0.05" value="{opacity}" style="width:100px"/> <span id="opacityVal">{opacity}</span></label>
   <label>Trace length: <input type="range" id="traceLenSlider" min="0.05" max="1" step="0.05" value="{trace_length}" style="width:100px"/> <span id="traceLenVal">{trace_length}</span></label>
-  <label>Trace width: <input type="range" id="traceWidthSlider" min="0.1" max="5" step="0.1" value="{trace_width}" style="width:100px"/> <span id="traceWidthVal">{trace_width}</span></label>
+  <label>Trace width: <input type="range" id="traceWidthSlider" min="0.1" max="2" step="0.1" value="{trace_width}" style="width:100px"/> <span id="traceWidthVal">{trace_width}</span></label>
   <label>Contour width: <input type="range" id="contourWidthSlider" min="0.1" max="5" step="0.1" value="{contour_width}" style="width:100px"/> <span id="contourWidthVal">{contour_width}</span></label>
 </div>
 <script>
@@ -739,15 +755,59 @@ function updateFourier(t) {{
 initFourier();
 updateFourier(0);
 
+const sparkRaysG = document.getElementById("spark-rays");
+const sparkParticlesG = document.getElementById("spark-particles");
+const sparkScale = {vb_size} / 100;
+const NUM_RAYS = 14;
+const NUM_PARTICLES = 8;
+const sparkRayEls = [];
+const sparkParticleEls = [];
+for (let i = 0; i < NUM_RAYS; i++) {{
+  const line = document.createElementNS(svgNS, "line");
+  line.setAttribute("stroke-linecap", "round");
+  sparkRaysG.appendChild(line);
+  sparkRayEls.push(line);
+}}
+for (let i = 0; i < NUM_PARTICLES; i++) {{
+  const c = document.createElementNS(svgNS, "circle");
+  c.setAttribute("fill", "gold");
+  sparkParticlesG.appendChild(c);
+  sparkParticleEls.push(c);
+}}
+function updateSpark() {{
+  for (let i = 0; i < NUM_RAYS; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const len = (1.0 + Math.random() * 4.0) * sparkScale;
+    const inner = (0.1 + Math.random() * 0.3) * sparkScale;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    sparkRayEls[i].setAttribute("x1", cos * inner);
+    sparkRayEls[i].setAttribute("y1", sin * inner);
+    sparkRayEls[i].setAttribute("x2", cos * len);
+    sparkRayEls[i].setAttribute("y2", sin * len);
+    const bright = Math.random() > 0.4;
+    sparkRayEls[i].setAttribute("stroke", bright ? "gold" : "darkorange");
+    sparkRayEls[i].setAttribute("stroke-width", (0.15 + Math.random() * 0.25) * sparkScale);
+    sparkRayEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.6);
+  }}
+  for (let i = 0; i < NUM_PARTICLES; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const dist = (1.0 + Math.random() * 3.0) * sparkScale;
+    sparkParticleEls[i].setAttribute("cx", Math.cos(angle) * dist);
+    sparkParticleEls[i].setAttribute("cy", Math.sin(angle) * dist);
+    sparkParticleEls[i].setAttribute("r", (0.05 + Math.random() * 0.15) * sparkScale);
+    sparkParticleEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.5);
+  }}
+}}
+
 function updateDisplay(t) {{
   tval.textContent = "t = " + t.toFixed(3);
   slider.value = t;
   updateFourier(t);
   updateTrace(t);
+  updateSpark();
   const pt = evalFourier(t);
   if (pt) {{
-    dot.setAttribute("cx", pt[0]);
-    dot.setAttribute("cy", pt[1]);
+    dot.setAttribute("transform", "translate(" + pt[0] + "," + pt[1] + ")");
   }}
 }}
 
@@ -763,37 +823,48 @@ let loopIndex = 0;
 
 const maxNh = fourier ? fourier.length : 1;
 let nhSteps = [];
+let nhSpeeds = [];
+let currentSpeed = 1;
 let totalLoops = 0;
 
 function parseStepsStr(str) {{
   const groups = str.split(";").map(s => s.trim()).filter(s => s.length > 0);
-  if (groups.length === 0) return {{ thresholds: [], maxH: 1 }};
-  const maxH = parseInt(groups[groups.length - 1]) || 1;
-  const thresholds = [];
-  for (let i = 0; i < groups.length - 1; i++) {{
-    const parts = groups[i].split(/\s+/).map(Number);
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {{
-      thresholds.push({{ start: parts[0], step: parts[1] }});
+  const ranges = [];
+  for (const g of groups) {{
+    const parts = g.split(/\s+/).map(Number);
+    if (parts.length === 4 && parts.every(n => !isNaN(n))) {{
+      ranges.push({{ from: parts[0], step: parts[1], to: parts[2], speed: parts[3] }});
     }}
   }}
-  return {{ thresholds, maxH }};
+  return ranges;
 }}
 
 function rebuildNhSteps(str) {{
-  const cfg = parseStepsStr(str);
-  const cap = Math.min(cfg.maxH, maxNh);
-  if (cfg.thresholds.length === 0 || cap < 1) {{ nhSteps = [1]; totalLoops = 1; return; }}
+  const ranges = parseStepsStr(str);
   nhSteps = [];
-  let nh = cfg.thresholds[0].start || 1;
-  let inc = cfg.thresholds[0].step || 1;
-  while (nh < cap && nhSteps.length < 10000) {{
-    nhSteps.push(nh);
-    for (const t of cfg.thresholds) {{
-      if (nh >= t.start) inc = t.step || 1;
+  nhSpeeds = [];
+  if (ranges.length === 0) {{ nhSteps = [1]; nhSpeeds = [1]; totalLoops = 1; return; }}
+  let i = ranges[0].from;
+  while (nhSteps.length < 10000) {{
+    let spd = 1;
+    for (const r of ranges) {{
+      if (i >= r.from && i < r.to) {{ spd = r.speed; break; }}
     }}
-    nh += inc;
+    nhSteps.push(Math.min(i, maxNh));
+    nhSpeeds.push(spd);
+    if (i >= maxNh) break;
+    let found = false;
+    for (const r of ranges) {{
+      if (i >= r.from && i < r.to) {{ i += r.step; found = true; break; }}
+    }}
+    if (!found) {{
+      let jumped = false;
+      for (let k = 0; k < ranges.length - 1; k++) {{
+        if (i >= ranges[k].to && i < ranges[k+1].from) {{ i = ranges[k+1].from; jumped = true; break; }}
+      }}
+      if (!jumped) break;
+    }}
   }}
-  nhSteps.push(cap);
   totalLoops = nhSteps.length;
 }}
 
@@ -816,6 +887,7 @@ stepsInputEl.addEventListener("keydown", function(e) {{
 function applyLoopParams() {{
   const h = nhSteps[loopIndex];
   numHarmonics = h;
+  currentSpeed = nhSpeeds[loopIndex] || 1;
   const titleEl = document.getElementById("pageTitle");
   if (titleEl) titleEl.textContent = "Harmonics: " + h;
   document.getElementById("loopVal").textContent = "loop " + loopIndex + "/" + totalLoops + " \u2014 harmonics: " + h;
@@ -834,8 +906,7 @@ function animate(timestamp) {{
   if (lastTime === null) lastTime = timestamp;
   const dt = (timestamp - lastTime) / 1000;
   lastTime = timestamp;
-  const speed = parseFloat(document.getElementById("speedSlider").value);
-  currentT += dt * speed * 0.1;
+  currentT += dt * currentSpeed * 0.1;
   if (currentT > 1) {{
     currentT -= 1;
     traceHistory = [];
@@ -861,12 +932,6 @@ document.getElementById("stopBtn").addEventListener("click", function() {{
   }}
 }});
 
-const speedSliderEl = document.getElementById("speedSlider");
-const speedValEl = document.getElementById("speedVal");
-speedSliderEl.addEventListener("input", function() {{
-  speedValEl.textContent = parseFloat(this.value).toFixed(1) + "x";
-}});
-
 // Auto-start
 lastTime = null;
 animId = requestAnimationFrame(animate);
@@ -875,7 +940,6 @@ animId = requestAnimationFrame(animate);
         points_array = p.points_array,
         fourier_json = p.fourier_json,
         vb_size = p.vb_size,
-        speed = opts.speed,
         opacity = opts.opacity,
         trace_length = opts.trace_length,
         trace_width = opts.trace_width,
@@ -892,12 +956,12 @@ animId = requestAnimationFrame(animate);
 
 fn inner_content_embed(p: &Params, opts: &EmbedOptions) -> String {
     let svg = svg_markup(p);
-    let thresholds_json = format!(
+    let ranges_json = format!(
         "[{}]",
         opts.steps
-            .thresholds
+            .ranges
             .iter()
-            .map(|t| format!("[{},{}]", t.start, t.step))
+            .map(|r| format!("[{},{},{},{}]", r.from, r.step, r.to, r.speed))
             .collect::<Vec<_>>()
             .join(",")
     );
@@ -1088,46 +1152,102 @@ updateFourier(0);
 {contour_init}
 {fourier_circles_init}
 
+const sparkRaysG = document.getElementById("spark-rays");
+const sparkParticlesG = document.getElementById("spark-particles");
+const sparkScale = {vb_size} / 100;
+const NUM_RAYS = 14;
+const NUM_PARTICLES = 8;
+const sparkRayEls = [];
+const sparkParticleEls = [];
+for (let i = 0; i < NUM_RAYS; i++) {{
+  const line = document.createElementNS(svgNS, "line");
+  line.setAttribute("stroke-linecap", "round");
+  sparkRaysG.appendChild(line);
+  sparkRayEls.push(line);
+}}
+for (let i = 0; i < NUM_PARTICLES; i++) {{
+  const c = document.createElementNS(svgNS, "circle");
+  c.setAttribute("fill", "gold");
+  sparkParticlesG.appendChild(c);
+  sparkParticleEls.push(c);
+}}
+function updateSpark() {{
+  for (let i = 0; i < NUM_RAYS; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const len = (1.0 + Math.random() * 4.0) * sparkScale;
+    const inner = (0.1 + Math.random() * 0.3) * sparkScale;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    sparkRayEls[i].setAttribute("x1", cos * inner);
+    sparkRayEls[i].setAttribute("y1", sin * inner);
+    sparkRayEls[i].setAttribute("x2", cos * len);
+    sparkRayEls[i].setAttribute("y2", sin * len);
+    const bright = Math.random() > 0.4;
+    sparkRayEls[i].setAttribute("stroke", bright ? "gold" : "darkorange");
+    sparkRayEls[i].setAttribute("stroke-width", (0.15 + Math.random() * 0.25) * sparkScale);
+    sparkRayEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.6);
+  }}
+  for (let i = 0; i < NUM_PARTICLES; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const dist = (1.0 + Math.random() * 3.0) * sparkScale;
+    sparkParticleEls[i].setAttribute("cx", Math.cos(angle) * dist);
+    sparkParticleEls[i].setAttribute("cy", Math.sin(angle) * dist);
+    sparkParticleEls[i].setAttribute("r", (0.05 + Math.random() * 0.15) * sparkScale);
+    sparkParticleEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.5);
+  }}
+}}
+
 let dotHidden = {dot_hidden};
 
 function updateDisplay(t) {{
   updateFourier(t);
   updateTrace(t);
+  updateSpark();
   const pt = evalFourier(t);
   if (pt) {{
-    dot.setAttribute("cx", pt[0]);
-    dot.setAttribute("cy", pt[1]);
+    dot.setAttribute("transform", "translate(" + pt[0] + "," + pt[1] + ")");
   }}
   if (!dotHidden) dot.style.display = "";
 }}
 
 let animId = null;
 let lastTime = null;
-const speed = {speed};
+let currentSpeed = nhSpeeds.length > 0 ? nhSpeeds[0] : 1;
 let currentT = 0;
 let loopIndex = 0;
 
 const maxNh = fourier ? fourier.length : 1;
 const nhSteps = [];
+const nhSpeeds = [];
 {{
-  const cap = Math.min({max_harmonic}, maxNh);
-  let nh = {first_start};
-  let inc = {first_step};
-  const thresholds = {thresholds_json};
-  while (nh < cap) {{
-    nhSteps.push(nh);
-    for (const t of thresholds) {{
-      if (nh >= t[0]) inc = t[1];
+  const ranges = {ranges_json};
+  let i = ranges.length > 0 ? ranges[0][0] : 1;
+  while (nhSteps.length < 10000) {{
+    let spd = 1;
+    for (const r of ranges) {{
+      if (i >= r[0] && i < r[2]) {{ spd = r[3]; break; }}
     }}
-    nh += inc;
+    nhSteps.push(Math.min(i, maxNh));
+    nhSpeeds.push(spd);
+    if (i >= maxNh) break;
+    let found = false;
+    for (const r of ranges) {{
+      if (i >= r[0] && i < r[2]) {{ i += r[1]; found = true; break; }}
+    }}
+    if (!found) {{
+      let jumped = false;
+      for (let k = 0; k < ranges.length - 1; k++) {{
+        if (i >= ranges[k][2] && i < ranges[k+1][0]) {{ i = ranges[k+1][0]; jumped = true; break; }}
+      }}
+      if (!jumped) break;
+    }}
   }}
-  nhSteps.push(cap);
 }}
 const totalLoops = nhSteps.length;
 
 function applyLoopParams() {{
   const h = nhSteps[loopIndex];
   numHarmonics = h;
+  currentSpeed = nhSpeeds[loopIndex] || 1;
   traceColorIdx = loopIndex % traceColors.length;
   traceEl.setAttribute("stroke", traceColors[traceColorIdx]);
 {update_trace_visible_js}
@@ -1141,7 +1261,7 @@ function animate(timestamp) {{
   if (lastTime === null) lastTime = timestamp;
   const dt = (timestamp - lastTime) / 1000;
   lastTime = timestamp;
-  currentT += dt * speed * 0.1;
+  currentT += dt * currentSpeed * 0.1;
   if (currentT > 1) {{
     currentT -= 1;
     traceHistory = [];
@@ -1160,7 +1280,6 @@ animId = requestAnimationFrame(animate);
         points_array = p.points_array,
         fourier_json = p.fourier_json,
         vb_size = p.vb_size,
-        speed = opts.speed,
         trace_visible_js = match &opts.show_trace {
             WhenToShow::Always => "let traceVisible = true;".to_string(),
             WhenToShow::Never => "let traceVisible = false;".to_string(),
@@ -1186,9 +1305,6 @@ animId = requestAnimationFrame(animate);
         trace_width = opts.trace_width,
         contour_width = opts.contour_width,
         trace_colors_json = serde_json_string_array(&opts.trace_colors),
-        max_harmonic = opts.steps.max_harmonic,
-        first_start = opts.steps.thresholds.first().map_or(1, |t| t.start),
-        first_step = opts.steps.thresholds.first().map_or(1, |t| t.step),
-        thresholds_json = thresholds_json,
+        ranges_json = ranges_json,
     )
 }

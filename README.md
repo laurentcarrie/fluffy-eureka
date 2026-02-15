@@ -127,16 +127,20 @@ circles-sketch init-config my-config.yml
 The config file controls animation behavior and display options:
 
 ```yaml
-speed: 3.0
 steps:
-  thresholds:
-  - start: 10
+  ranges:
+  - from: 1
     step: 1
-  - start: 20
+    to: 10
+    speed: 3.0
+  - from: 10
     step: 5
-  - start: 100
+    to: 20
+    speed: 3.0
+  - from: 20
     step: 10
-  max_harmonic: 100
+    to: 100
+    speed: 3.0
 show_contour: Never          # Always, Never, or !OnceEvery {modulo: N, remainders: [0]}
 show_point: true
 show_trace: Always
@@ -158,19 +162,19 @@ trace_colors:
 
 ### Harmonic steps
 
-The `steps` field controls how harmonics progress across animation loops. The format `thresholds` + `max_harmonic` works as follows:
+The `steps` field controls how harmonics progress across animation loops. Each range specifies `from`, `step`, `to`, and `speed`:
 
-- Start at `nh = first threshold's start`, with `increment = first threshold's step`
+- Start at `nh = first range's from`, with `increment = first range's step`
 - At each loop, `nh += increment`
-- When `nh >= next threshold's start`, `increment` changes to that threshold's step
-- When `nh >= max_harmonic`, stop
+- When `nh >= range's to`, move to the next range
+- Each range has its own animation `speed`
 
-For example, with thresholds `[(10, 1), (20, 5), (100, 10)]` and `max_harmonic: 1000`:
-- nh = 10, 11, 12, ..., 19 (increment 1)
-- nh = 20, 25, 30, ..., 95 (increment 5)
-- nh = 100, 110, 120, ..., 1000 (increment 10)
+For example, with ranges `[(1, 1, 10, 3.0), (10, 5, 20, 3.0), (20, 10, 100, 1.0)]`:
+- nh = 1, 2, 3, ..., 9 (increment 1, speed 3.0)
+- nh = 10, 15 (increment 5, speed 3.0)
+- nh = 20, 30, 40, ..., 90 (increment 10, speed 1.0)
 
-The steps schedule is editable in the interactive HTML page using the format `10 1 ; 20 5 ; 100 10 ; 1000`.
+The steps schedule is editable in the interactive HTML page using the format `from step to speed ; from step to speed ; ...`.
 
 ### Show modes
 
@@ -187,9 +191,8 @@ The generated full HTML page includes:
 - **t slider** — scrub through the parametric position on the contour
 - **Loop display** — current loop index and harmonic count
 - **Start / Stop** — animate the drawing
-- **Speed slider** — control animation speed
-- **Harmonics loop** — editable harmonic step schedule (`start step ; start step ; ... ; max`)
-- **Contour / Trace / Circles** — select Always, Never, or Every N (with modulo and remainders)
+- **Harmonics loop** — editable harmonic step schedule (`from step to speed ; ...`), speed is per-range
+- **Contour / Trace / Circles** — select Always, Never, or Modulo (with modulo and remainders)
 - **Point** — toggle the drawing position indicator
 - **NH label** — toggle the harmonic count label on the SVG
 - **Opacity** — trace opacity
