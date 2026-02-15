@@ -146,11 +146,11 @@ fn generate(mut contour: Contour, opts: EmbedOptions, stem: &str, command: &str)
             p.1 = -p.1;
         }
     }
-    let n = opts.num_points;
-    let contour = interpolate(&contour, n);
+    let num_points = contour.points.len().max(opts.max_harmonics * 2).max(1000);
+    let contour = interpolate(&contour, num_points);
     let svg_path = svg_path_of_contour(&contour);
-    let max_terms = contour.points.len() / 2;
-    let fd = fourier_decomposition(&contour, max_terms);
+    let num_coefficients = (num_points / 2).min(500);
+    let fd = fourier_decomposition(&contour, num_coefficients);
 
     let html =
         html_of_svg_path_with_fourier(&svg_path, &contour.points, Some(&fd), &opts, Some(command));

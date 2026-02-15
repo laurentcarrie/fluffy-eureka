@@ -172,7 +172,7 @@ function updateFourier(t) {
 
 initFourier();
 updateFourier(0);
-
+document.getElementById("contour-path").style.display = "";
 
 
 const sparkRaysG = document.getElementById("spark-rays");
@@ -234,15 +234,15 @@ function updateDisplay(t) {
 
 let animId = null;
 let lastTime = null;
-let currentSpeed = nhSpeeds.length > 0 ? nhSpeeds[0] : 1;
 let currentT = 0;
 let loopIndex = 0;
 
-const maxNh = fourier ? fourier.length : 1;
+const maxHarmonics = 3;
+const maxNh = fourier ? Math.min(maxHarmonics, fourier.length) : 1;
 const nhSteps = [];
 const nhSpeeds = [];
 {
-  const ranges = [[1,1,10,3],[10,5,20,3],[20,10,100,3]];
+  const ranges = [[1,1,5,2]];
   let i = ranges.length > 0 ? ranges[0][0] : 1;
   while (nhSteps.length < 10000) {
     let spd = 1;
@@ -266,6 +266,7 @@ const nhSpeeds = [];
   }
 }
 const totalLoops = nhSteps.length;
+let currentSpeed = nhSpeeds.length > 0 ? nhSpeeds[0] : 1;
 
 function applyLoopParams() {
   const h = nhSteps[loopIndex];

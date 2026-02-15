@@ -88,7 +88,7 @@ pub enum WhenToShow {
 
 #[derive(Serialize, Deserialize)]
 pub struct EmbedOptions {
-    pub num_points: usize,
+    pub max_harmonics: usize,
     pub steps: HarmonicSteps,
     pub show_contour: WhenToShow,
     pub show_point: bool,
@@ -136,7 +136,7 @@ impl EmbedOptions {
 impl Default for EmbedOptions {
     fn default() -> Self {
         Self {
-            num_points: 1000,
+            max_harmonics: 500,
             steps: HarmonicSteps::default(),
             show_contour: WhenToShow::Never,
             show_point: true,

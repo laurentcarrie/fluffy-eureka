@@ -1,4 +1,4 @@
-num_points: 5000
+max_harmonics: 2500
 steps:
   ranges:
   - from: 1

@@ -14,18 +14,27 @@ cargo install circles-sketch
 
 - [Band](https://laurentcarrie.github.io/fluffy-eureka/examples/band.html)
 - [Electric Guitar](https://laurentcarrie.github.io/fluffy-eureka/examples/guitar.html)
-- [Music Note](https://laurentcarrie.github.io/fluffy-eureka/examples/note.html)
 - [Cursive Text "Move"](https://laurentcarrie.github.io/fluffy-eureka/examples/move-the-line.html)
 - [Cardioid](https://laurentcarrie.github.io/fluffy-eureka/examples/cardioid.html)
 - [Square](https://laurentcarrie.github.io/fluffy-eureka/examples/square.html)
+
+## Embeddable versions
+
+Each example also generates a standalone `<div>` snippet (`*-embed.html`) that can be embedded directly into your own HTML page via an `<iframe>` or by inlining the markup:
+
+- [Band](https://laurentcarrie.github.io/fluffy-eureka/examples/band-embed.html)
+- [Electric Guitar](https://laurentcarrie.github.io/fluffy-eureka/examples/guitar-embed.html)
+- [Cursive Text "Move"](https://laurentcarrie.github.io/fluffy-eureka/examples/move-the-line-embed.html)
+- [Cardioid](https://laurentcarrie.github.io/fluffy-eureka/examples/cardioid-embed.html)
+- [Square](https://laurentcarrie.github.io/fluffy-eureka/examples/square-embed.html)
 
 ## How it works
 
 Any closed 2D shape can be described as a sum of rotating circles (Fourier series). This tool:
 
 1. Reads a contour from one of three input sources (YAML points, text string, SVG file)
-2. Interpolates the contour to N evenly-spaced points (default 1000, configurable with `-n`)
-3. Computes the complex Discrete Fourier Transform (DFT)
+2. Interpolates the contour to evenly-spaced points
+3. Computes the complex Discrete Fourier Transform (DFT) up to `max_harmonics` terms (default 500, configurable in the config YAML)
 4. Generates two self-contained HTML files: a full interactive page and a minimal embed version
 
 The animation shows epicycles (rotating circles) that, when chained together, trace out the original shape. As more harmonics are added, the approximation gets closer to the original contour.
@@ -218,7 +227,6 @@ points:
 | `examples/square.yml` | Simple square |
 | `examples/cardioid.yml` | Cardioid curve |
 | `examples/move-the-line` | "Move The Line" text (AkayaTelivigala font) |
-| `examples/note.yml` | Music note symbol |
 | `examples/guitar.yml` | Electric guitar |
 | `examples/band.svg` | Band silhouette (SVG input) |
 
@@ -246,6 +254,14 @@ examples/
 ```bash
 cargo build
 cargo test
+```
+
+## Regenerating examples
+
+A `Makefile` is provided to regenerate the example HTML files. It only rebuilds examples whose source files have changed:
+
+```bash
+make examples
 ```
 
 ## Dependencies

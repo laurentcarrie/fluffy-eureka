@@ -551,10 +551,12 @@ fn inner_content_full(p: &Params, opts: &EmbedOptions, command: Option<&str>) ->
 </div>
 <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center">
   <span id="loopVal">loop 0/0 — harmonics: 1</span>
+  <span style="color:#888">max harmonics: {max_harmonics}</span>
 </div>
 <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center">
   <button id="startBtn">Start</button>
   <button id="stopBtn">Stop</button>
+  <button id="harmonicsBtn">Harmonics</button>
   <label>Harmonics loop: <input type="text" id="stepsInput" value="{steps_str}" style="width:400px;font-family:monospace;font-size:0.85em" title="from step to speed ; from step to speed ; ..."/></label>
 </div>
 <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center">
@@ -569,6 +571,12 @@ fn inner_content_full(p: &Params, opts: &EmbedOptions, command: Option<&str>) ->
   <label>Trace length: <input type="range" id="traceLenSlider" min="0.05" max="1" step="0.05" value="{trace_length}" style="width:100px"/> <span id="traceLenVal">{trace_length}</span></label>
   <label>Trace width: <input type="range" id="traceWidthSlider" min="0.1" max="2" step="0.1" value="{trace_width}" style="width:100px"/> <span id="traceWidthVal">{trace_width}</span></label>
   <label>Contour width: <input type="range" id="contourWidthSlider" min="0.1" max="5" step="0.1" value="{contour_width}" style="width:100px"/> <span id="contourWidthVal">{contour_width}</span></label>
+</div>
+<div id="harmonicsDiv" style="display:none;margin-top:10px;max-height:300px;overflow:auto">
+  <table style="border-collapse:collapse;font-family:monospace;font-size:0.85em">
+    <thead><tr><th style="padding:2px 8px;border-bottom:1px solid #555">#</th><th style="padding:2px 8px;border-bottom:1px solid #555">freq</th><th style="padding:2px 8px;border-bottom:1px solid #555">re</th><th style="padding:2px 8px;border-bottom:1px solid #555">im</th><th style="padding:2px 8px;border-bottom:1px solid #555">radius</th></tr></thead>
+    <tbody id="harmonicsTbody"></tbody>
+  </table>
 </div>
 <script>
 const points = {points_array};
@@ -830,7 +838,8 @@ let lastTime = null;
 let currentT = 0;
 let loopIndex = 0;
 
-const maxNh = fourier ? fourier.length : 1;
+const maxHarmonics = {max_harmonics};
+const maxNh = fourier ? Math.min(maxHarmonics, fourier.length) : 1;
 let nhSteps = [];
 let nhSpeeds = [];
 let currentSpeed = 1;
@@ -941,6 +950,20 @@ document.getElementById("stopBtn").addEventListener("click", function() {{
   }}
 }});
 
+// Harmonics table
+if (fourier) {{
+  const tbody = document.getElementById("harmonicsTbody");
+  fourier.forEach((c, i) => {{
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td style=\"padding:2px 8px\">"+i+"</td><td style=\"padding:2px 8px\">"+c.freq+"</td><td style=\"padding:2px 8px\">"+c.re.toFixed(4)+"</td><td style=\"padding:2px 8px\">"+c.im.toFixed(4)+"</td><td style=\"padding:2px 8px\">"+c.r.toFixed(4)+"</td>";
+    tbody.appendChild(tr);
+  }});
+}}
+document.getElementById("harmonicsBtn").addEventListener("click", function() {{
+  const div = document.getElementById("harmonicsDiv");
+  div.style.display = div.style.display === "none" ? "" : "none";
+}});
+
 // Auto-start
 lastTime = null;
 animId = requestAnimationFrame(animate);
@@ -960,21 +983,25 @@ animId = requestAnimationFrame(animate);
         circles_select = circles_select,
         trace_colors_json = serde_json_string_array(&opts.trace_colors),
         steps_str = p.steps_str,
+        max_harmonics = opts.max_harmonics,
         command_div = match command {
             Some(cmd) => {
                 let escaped = html_escape(cmd);
                 let formatted = escaped
                     .split(' ')
-                    .fold((String::new(), false), |(mut acc, past_first_arg), token| {
-                        let is_flag = token.starts_with('-');
-                        if is_flag && past_first_arg {
-                            acc.push_str("<br/>  ");
-                        } else if !acc.is_empty() {
-                            acc.push(' ');
-                        }
-                        acc.push_str(token);
-                        (acc, past_first_arg || !is_flag)
-                    })
+                    .fold(
+                        (String::new(), false),
+                        |(mut acc, past_first_arg), token| {
+                            let is_flag = token.starts_with('-');
+                            if is_flag && past_first_arg {
+                                acc.push_str("<br/>  ");
+                            } else if !acc.is_empty() {
+                                acc.push(' ');
+                            }
+                            acc.push_str(token);
+                            (acc, past_first_arg || !is_flag)
+                        },
+                    )
                     .0;
                 format!(
                     r#"<div style="margin-bottom:10px;font-family:monospace;font-size:1.1em;color:#888;text-align:left">Generated by:<br/><code>{}</code></div>"#,
@@ -1243,11 +1270,11 @@ function updateDisplay(t) {{
 
 let animId = null;
 let lastTime = null;
-let currentSpeed = nhSpeeds.length > 0 ? nhSpeeds[0] : 1;
 let currentT = 0;
 let loopIndex = 0;
 
-const maxNh = fourier ? fourier.length : 1;
+const maxHarmonics = {max_harmonics};
+const maxNh = fourier ? Math.min(maxHarmonics, fourier.length) : 1;
 const nhSteps = [];
 const nhSpeeds = [];
 {{
@@ -1275,6 +1302,7 @@ const nhSpeeds = [];
   }}
 }}
 const totalLoops = nhSteps.length;
+let currentSpeed = nhSpeeds.length > 0 ? nhSpeeds[0] : 1;
 
 function applyLoopParams() {{
   const h = nhSteps[loopIndex];
@@ -1338,5 +1366,6 @@ animId = requestAnimationFrame(animate);
         contour_width = opts.contour_width,
         trace_colors_json = serde_json_string_array(&opts.trace_colors),
         ranges_json = ranges_json,
+        max_harmonics = opts.max_harmonics,
     )
 }
