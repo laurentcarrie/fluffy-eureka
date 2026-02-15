@@ -1,20 +1,28 @@
 num_points: 5000
-speed: 3.0
 steps:
-  thresholds:
-  - start: 1
+  ranges:
+  - from: 1
     step: 1
-  - start: 10
+    to: 10
+    speed: 3.0
+  - from: 10
     step: 5
-  - start: 50
+    to: 50
+    speed: 3.0
+  - from: 50
     step: 10
-  - start: 100
+    to: 100
+    speed: 1.0
+  - from: 100
     step: 100
-  - start: 500
+    to: 500
+    speed: 1.0
+  - from: 500
     step: 500
-  max_harmonic: 50000
+    to: 5000
+    speed: 1.0
 show_contour: !OnceEvery
-  modulo: 
+  modulo:
     3
   remainders:
     - 0
@@ -23,12 +31,12 @@ show_trace: Always
 trace_length: 0.1
 opacity: 0.8
 show_nh: true
-trace_width: 1.0
-contour_width: 1.0
+trace_width: 0.5
+contour_width: 0.5
 show_fourier_circles: !OnceEvery
   modulo:
     3
   remainders:
     - 1
     - 2
-
+flip_y: true
