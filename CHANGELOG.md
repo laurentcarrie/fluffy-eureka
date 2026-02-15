@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Config
+- Moved `speed` from top-level `EmbedOptions` into `HarmonicRange` — each range now has its own animation speed
+- Removed global `speed` field from config YAML files
+
+### HTML output
+- Per-range speed: animation speed changes automatically as harmonics progress through different ranges
+- Removed the speed slider from the full interactive page (speed is now controlled per-range in the harmonics loop input)
+- Harmonics loop input format changed from `from step to ; ...` to `from step to speed ; ...`
+- Renamed "Every N" display mode to "Modulo" in the UI dropdowns
+
 ## 0.2.0
 
 ### Package
