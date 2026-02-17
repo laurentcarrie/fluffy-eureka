@@ -1,8 +1,10 @@
 #[cfg(test)]
 mod tests {
+    use crate::canvas::{
+        embed_html_of_svg_path_with_fourier, html_of_svg_path, svg_path_of_contour,
+    };
     use crate::contour::{Contour, ContourFunction, f_of_contour, fourier_decomposition};
     use crate::model::EmbedOptions;
-    use crate::svg::{html_of_svg_path, svg_path_of_contour};
 
     #[test]
     fn test_square() {
@@ -102,10 +104,19 @@ mod tests {
         let opts = EmbedOptions::default();
         let html = html_of_svg_path(path, &opts, None);
         assert!(html.contains("<html>"));
-        assert!(html.contains("<svg"));
-        assert!(html.contains(&format!("d=\"{}\"", path)));
-        assert!(html.contains("</svg>"));
+        assert!(html.contains("<canvas"));
+        assert!(html.contains(path));
+        assert!(!html.contains("<svg"));
         assert!(html.contains("</html>"));
+    }
+
+    #[test]
+    fn test_embed_html_uses_canvas() {
+        let path = "M 0 0 L 1 0 L 1 1 L 0 0";
+        let opts = EmbedOptions::default();
+        let html = embed_html_of_svg_path_with_fourier(path, &[], None, &opts);
+        assert!(html.contains("<canvas"));
+        assert!(!html.contains("<svg"));
     }
 
     #[test]

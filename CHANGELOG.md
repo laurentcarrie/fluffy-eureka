@@ -10,7 +10,7 @@
 - Per-range speed: animation speed changes automatically as harmonics progress through different ranges
 - Removed the speed slider from the full interactive page (speed is now controlled per-range in the harmonics loop input)
 - Harmonics loop input format changed from `from step to ; ...` to `from step to speed ; ...`
-- Renamed "Every N" display mode to "Modulo" in the UI dropdowns
+- Renamed "Every N" display mode to "Congruence" in the UI dropdowns
 
 ## 0.2.0
 
@@ -30,15 +30,15 @@
 
 ### Config
 - Added `EmbedOptions` config struct with YAML serialization
-- Added `WhenToShow` enum: `Always`, `Never`, `OnceEvery { modulo, remainders }` for conditional display per loop
+- Added `WhenToShow` enum: `Always`, `Never`, `Congruence { modulo, congruents }` for conditional display per loop
 - Added `trace_colors` field for configurable trace color cycling
 - Added `trace_width`, `contour_width`, `opacity`, `show_nh` fields
-- Added validation: remainders must be < modulo, modulo must be > 0
+- Added validation: congruents must be < modulo, modulo must be > 0
 
 ### HTML output
 - Clear trace and hide Fourier circles at the end of each animation loop
 - Full HTML page now has all parameters as interactive controls
-- Contour, Trace, Circles use select dropdowns (Always/Never/Every N) with modulo and remainders inputs
+- Contour, Trace, Circles use select dropdowns (Always/Never/Congruence) with modulo and congruents inputs
 - Editable harmonic steps schedule in `start step ; start step ; ... ; max` format
 - Loop display on separate line showing loop index and harmonic count
 - Removed auto-opacity button; replaced with direct controls
