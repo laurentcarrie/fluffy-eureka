@@ -347,7 +347,6 @@ struct Params {
     vb_x: f64,
     vb_y: f64,
     vb_size: f64,
-    stroke: f64,
     dot_r: f64,
     steps_str: String,
 }
@@ -429,69 +428,34 @@ fn compute_params(
         vb_x,
         vb_y,
         vb_size,
-        stroke: vb_size / 100.0,
         dot_r: vb_size * 0.7 / 100.0,
         steps_str,
     }
 }
 
-fn svg_markup(p: &Params) -> String {
-    format!(
-        r#"<svg id="svg" xmlns="http://www.w3.org/2000/svg" viewBox="{vb_x} {vb_y} {vb_size} {vb_size}" width="500" height="500">
-  <defs>
-    <radialGradient id="sparkGrad">
-      <stop offset="0%" stop-color="white"/>
-      <stop offset="20%" stop-color="lightyellow"/>
-      <stop offset="50%" stop-color="orange"/>
-      <stop offset="80%" stop-color="orangered"/>
-      <stop offset="100%" stop-color="transparent"/>
-    </radialGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="{glow_std}" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <path id="contour-path" d="{svg_path}" fill="none" stroke="white" stroke-width="{stroke}" style="display:none"/>
-  <g id="fourier-group"></g>
-  <polyline id="trace" fill="none" stroke="red" stroke-width="{stroke}" points="" opacity="0"/>
-  <g id="dot" filter="url(#glow)">
-    <circle id="spark-glow" cx="0" cy="0" r="{spark_r}" fill="url(#sparkGrad)" opacity="0.9"/>
-    <circle cx="0" cy="0" r="{spark_core}" fill="white"/>
-    <g id="spark-rays"></g>
-    <g id="spark-particles"></g>
-  </g>
-  <text id="nh-label" fill="white" font-size="{font_size}" style="pointer-events:none"></text>
-</svg>"#,
-        svg_path = p.svg_path,
-        vb_x = p.vb_x,
-        vb_y = p.vb_y,
-        vb_size = p.vb_size,
-        stroke = p.stroke,
-        glow_std = p.vb_size * 1.0 / 100.0,
-        spark_r = p.dot_r * 3.0,
-        spark_core = p.dot_r * 0.5,
-        font_size = p.vb_size * 4.0 / 100.0,
-    )
+fn canvas_markup() -> String {
+    r#"<canvas id="canvas" width="1000" height="1000" style="width:500px;height:500px"></canvas>"#
+        .to_string()
 }
 
 fn when_to_show_select_val(w: &WhenToShow) -> &'static str {
     match w {
         WhenToShow::Always => "always",
         WhenToShow::Never => "never",
-        WhenToShow::OnceEvery(_) => "every",
+        WhenToShow::Congruence(_) => "every",
     }
 }
 
 fn when_to_show_every_modulo(w: &WhenToShow) -> usize {
     match w {
-        WhenToShow::OnceEvery(e) => e.modulo,
+        WhenToShow::Congruence(e) => e.modulo,
         _ => 2,
     }
 }
 
-fn when_to_show_every_remainders(w: &WhenToShow) -> &[usize] {
+fn when_to_show_every_congruents(w: &WhenToShow) -> &[usize] {
     match w {
-        WhenToShow::OnceEvery(e) => &e.remainders,
+        WhenToShow::Congruence(e) => &e.congruents,
         _ => &[0],
     }
 }
@@ -499,13 +463,13 @@ fn when_to_show_every_remainders(w: &WhenToShow) -> &[usize] {
 fn when_to_show_select_html(id: &str, label: &str, w: &WhenToShow) -> String {
     let val = when_to_show_select_val(w);
     let modulo = when_to_show_every_modulo(w);
-    let remainders = when_to_show_every_remainders(w);
-    let remainders_str = remainders
+    let congruents = when_to_show_every_congruents(w);
+    let congruents_str = congruents
         .iter()
         .map(|r| r.to_string())
         .collect::<Vec<_>>()
         .join(",");
-    let every_display = if matches!(w, WhenToShow::OnceEvery(_)) {
+    let every_display = if matches!(w, WhenToShow::Congruence(_)) {
         ""
     } else {
         "display:none;"
@@ -514,12 +478,12 @@ fn when_to_show_select_html(id: &str, label: &str, w: &WhenToShow) -> String {
         r#"<label>{label}: <select id="{id}">
     <option value="always"{sel_a}>Always</option>
     <option value="never"{sel_n}>Never</option>
-    <option value="every"{sel_e}>Modulo</option>
-  </select><input type="number" id="{id}M" min="1" value="{modulo}" style="width:45px;{every_display}" title="modulo"/>/<input type="text" id="{id}R" value="{remainders_str}" style="width:80px;{every_display}" title="remainders (comma-separated)" placeholder="0,1,..."/></label>"#,
+    <option value="every"{sel_e}>Congruence</option>
+  </select><input type="number" id="{id}M" min="1" value="{modulo}" style="width:45px;{every_display}" title="modulo"/>/<input type="text" id="{id}R" value="{congruents_str}" style="width:80px;{every_display}" title="congruents (comma-separated)" placeholder="0,1,..."/></label>"#,
         label = label,
         id = id,
         modulo = modulo,
-        remainders_str = remainders_str,
+        congruents_str = congruents_str,
         every_display = every_display,
         sel_a = if val == "always" { " selected" } else { "" },
         sel_n = if val == "never" { " selected" } else { "" },
@@ -535,7 +499,7 @@ fn html_escape(s: &str) -> String {
 }
 
 fn inner_content_full(p: &Params, opts: &EmbedOptions, command: Option<&str>) -> String {
-    let svg = svg_markup(p);
+    let canvas = canvas_markup();
     let point_checked = if opts.show_point { " checked" } else { "" };
     let nh_checked = if opts.show_nh { " checked" } else { "" };
     let contour_select = when_to_show_select_html("selContour", "Contour", &opts.show_contour);
@@ -544,7 +508,7 @@ fn inner_content_full(p: &Params, opts: &EmbedOptions, command: Option<&str>) ->
         when_to_show_select_html("selCircles", "Circles", &opts.show_fourier_circles);
     format!(
         r#"{command_div}
-{svg}
+{canvas}
 <div style="margin-top:10px">
   <input type="range" id="slider" min="0" max="1" step="0.001" value="0" style="width:500px"/>
   <span id="tval">t = 0.000</span>
@@ -579,26 +543,47 @@ fn inner_content_full(p: &Params, opts: &EmbedOptions, command: Option<&str>) ->
   </table>
 </div>
 <script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const VB_X = {vb_x};
+const VB_Y = {vb_y};
+const VB_SIZE = {vb_size};
+const contourPath2D = new Path2D("{svg_path}");
 const points = {points_array};
 const fourier = {fourier_json};
 const slider = document.getElementById("slider");
-const dot = document.getElementById("dot");
 const tval = document.getElementById("tval");
-const svgNS = "http://www.w3.org/2000/svg";
-const fourierCircleColors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
+const fourierCircleColors = ["blue","green","orange","purple","cyan","magenta"];
 const traceColors = {trace_colors_json};
 let traceColorIdx = 0;
-const scale = {vb_size} / 100;
-const traceEl = document.getElementById("trace");
-const contourPath = document.getElementById("contour-path");
-const fourierGroup = document.getElementById("fourier-group");
-const nhLabel = document.getElementById("nh-label");
+const scale = VB_SIZE / 100;
+const dotR = {dot_r};
+const sparkScale = VB_SIZE / 100;
+const NUM_RAYS = 14;
+const NUM_PARTICLES = 8;
 
 let traceVisible = true;
+let contourVisible = true;
+let fourierVisible = true;
+let dotVisible = {show_point};
+let showNh = {show_nh};
+let traceOpacity = {opacity};
+let traceWidth = {trace_width};
+let contourWidth = {contour_width};
 let traceHistory = [];
-traceEl.setAttribute("opacity", {opacity});
-traceEl.setAttribute("stroke-width", {trace_width} * scale);
-contourPath.setAttribute("stroke-width", {contour_width} * scale);
+let firstDotX = 0, firstDotY = 0;
+
+const dpr = window.devicePixelRatio || 1;
+canvas.width = 500 * dpr;
+canvas.height = 500 * dpr;
+
+function setupTransform() {{
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr, dpr);
+  const s = 500 / VB_SIZE;
+  ctx.translate(-VB_X * s, -VB_Y * s);
+  ctx.scale(s, s);
+}}
 
 function getShowMode(selId) {{
   const sel = document.getElementById(selId);
@@ -606,7 +591,7 @@ function getShowMode(selId) {{
   if (mode === "every") {{
     const m = parseInt(document.getElementById(selId + "M").value) || 2;
     const rs = document.getElementById(selId + "R").value.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-    return {{ modulo: m, remainders: rs.length ? rs : [0] }};
+    return {{ modulo: m, congruents: rs.length ? rs : [0] }};
   }}
   return mode;
 }}
@@ -614,7 +599,7 @@ function getShowMode(selId) {{
 function shouldShow(mode, loopIdx) {{
   if (mode === "always") return true;
   if (mode === "never") return false;
-  return mode.remainders.includes(loopIdx % mode.modulo);
+  return mode.congruents.includes(loopIdx % mode.modulo);
 }}
 
 function wireShowSelect(selId) {{
@@ -635,7 +620,7 @@ const opacitySlider = document.getElementById("opacitySlider");
 const opacityVal = document.getElementById("opacityVal");
 opacitySlider.addEventListener("input", function() {{
   opacityVal.textContent = parseFloat(this.value).toFixed(2);
-  traceEl.setAttribute("opacity", this.value);
+  traceOpacity = parseFloat(this.value);
 }});
 
 const traceLenSlider = document.getElementById("traceLenSlider");
@@ -648,21 +633,21 @@ const traceWidthSlider = document.getElementById("traceWidthSlider");
 const traceWidthVal = document.getElementById("traceWidthVal");
 traceWidthSlider.addEventListener("input", function() {{
   traceWidthVal.textContent = parseFloat(this.value).toFixed(1);
-  traceEl.setAttribute("stroke-width", parseFloat(this.value) * scale);
+  traceWidth = parseFloat(this.value);
 }});
 
 const contourWidthSlider = document.getElementById("contourWidthSlider");
 const contourWidthVal = document.getElementById("contourWidthVal");
 contourWidthSlider.addEventListener("input", function() {{
   contourWidthVal.textContent = parseFloat(this.value).toFixed(1);
-  contourPath.setAttribute("stroke-width", parseFloat(this.value) * scale);
+  contourWidth = parseFloat(this.value);
 }});
 
 document.getElementById("chkPoint").addEventListener("change", function() {{
-  dot.style.display = this.checked ? "" : "none";
+  dotVisible = this.checked;
 }});
 document.getElementById("chkNh").addEventListener("change", function() {{
-  nhLabel.style.display = this.checked ? "" : "none";
+  showNh = this.checked;
 }});
 
 function evalFourier(t) {{
@@ -678,11 +663,52 @@ function evalFourier(t) {{
   return [cx, cy];
 }}
 
-function updateTrace(t) {{
-  if (!traceVisible || !fourier) {{
-    traceEl.style.display = "none";
-    return;
+function drawContour() {{
+  if (!contourVisible) return;
+  ctx.save();
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = contourWidth * scale;
+  ctx.stroke(contourPath2D);
+  ctx.restore();
+}}
+
+function drawFourier(t) {{
+  if (!fourierVisible || !fourier) return;
+  const numH = getNumHarmonics();
+  let cx = 0, cy = 0;
+  for (let k = 0; k < numH; k++) {{
+    const c = fourier[k];
+    const theta = 2 * Math.PI * c.freq * t;
+    const dx = c.re * Math.cos(theta) - c.im * Math.sin(theta);
+    const dy = c.im * Math.cos(theta) + c.re * Math.sin(theta);
+    const nx = cx + dx;
+    const ny = cy + dy;
+    const color = fourierCircleColors[k % fourierCircleColors.length];
+    ctx.beginPath();
+    ctx.arc(cx, cy, c.r, 0, 2 * Math.PI);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.3 * scale;
+    ctx.setLineDash([scale, scale]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(nx, ny);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.3 * scale;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(nx, ny, 0.8 * scale, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    if (k === 0) {{ firstDotX = nx; firstDotY = ny; }}
+    cx = nx;
+    cy = ny;
   }}
+}}
+
+function updateTraceData(t) {{
+  if (!traceVisible || !fourier) return;
   const pt = evalFourier(t);
   if (!pt) return;
   traceHistory.push(pt);
@@ -690,34 +716,79 @@ function updateTrace(t) {{
   if (traceHistory.length > maxLen) {{
     traceHistory = traceHistory.slice(traceHistory.length - maxLen);
   }}
-  traceEl.setAttribute("points", traceHistory.map(p => p[0] + "," + p[1]).join(" "));
-  traceEl.style.display = "";
 }}
 
-function initFourier() {{
-  if (!fourier) return;
-  const g = fourierGroup;
-  for (let k = 0; k < fourier.length; k++) {{
-    const color = fourierCircleColors[k % fourierCircleColors.length];
-    const circle = document.createElementNS(svgNS, "circle");
-    circle.id = "fourier-circle-" + k;
-    circle.setAttribute("fill", "none");
-    circle.setAttribute("stroke", color);
-    circle.setAttribute("stroke-width", 0.3 * scale);
-    circle.setAttribute("stroke-dasharray", scale + "," + scale);
-    circle.setAttribute("r", fourier[k].r);
-    g.appendChild(circle);
-    const line = document.createElementNS(svgNS, "line");
-    line.id = "fourier-line-" + k;
-    line.setAttribute("stroke", color);
-    line.setAttribute("stroke-width", 0.3 * scale);
-    g.appendChild(line);
-    const fdot = document.createElementNS(svgNS, "circle");
-    fdot.id = "fourier-dot-" + k;
-    fdot.setAttribute("r", 0.8 * scale);
-    fdot.setAttribute("fill", color);
-    g.appendChild(fdot);
+function drawTrace() {{
+  if (!traceVisible || traceHistory.length < 2) return;
+  ctx.save();
+  ctx.globalAlpha = traceOpacity;
+  ctx.strokeStyle = traceColors[traceColorIdx];
+  ctx.lineWidth = traceWidth * scale;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(traceHistory[0][0], traceHistory[0][1]);
+  for (let i = 1; i < traceHistory.length; i++) {{
+    ctx.lineTo(traceHistory[i][0], traceHistory[i][1]);
   }}
+  ctx.stroke();
+  ctx.restore();
+}}
+
+function drawSpark(px, py) {{
+  if (!dotVisible) return;
+  ctx.save();
+  ctx.translate(px, py);
+  const glowR = dotR * 3;
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+  grad.addColorStop(0, "white");
+  grad.addColorStop(0.2, "lightyellow");
+  grad.addColorStop(0.5, "orange");
+  grad.addColorStop(0.8, "orangered");
+  grad.addColorStop(1, "transparent");
+  ctx.beginPath();
+  ctx.arc(0, 0, glowR, 0, 2 * Math.PI);
+  ctx.fillStyle = grad;
+  ctx.globalAlpha = 0.9;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, dotR * 0.5, 0, 2 * Math.PI);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.lineCap = "round";
+  for (let i = 0; i < NUM_RAYS; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const len = (2.0 + Math.random() * 6.0) * sparkScale;
+    const inner = (0.2 + Math.random() * 0.5) * sparkScale;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(cos * inner, sin * inner);
+    ctx.lineTo(cos * len, sin * len);
+    ctx.strokeStyle = Math.random() > 0.4 ? "gold" : "darkorange";
+    ctx.lineWidth = (0.3 + Math.random() * 0.5) * sparkScale;
+    ctx.globalAlpha = 0.3 + Math.random() * 0.6;
+    ctx.stroke();
+  }}
+  for (let i = 0; i < NUM_PARTICLES; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const dist = (2.0 + Math.random() * 5.0) * sparkScale;
+    ctx.beginPath();
+    ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, (0.1 + Math.random() * 0.3) * sparkScale, 0, 2 * Math.PI);
+    ctx.fillStyle = "gold";
+    ctx.globalAlpha = 0.3 + Math.random() * 0.5;
+    ctx.fill();
+  }}
+  ctx.restore();
+}}
+
+function drawNhLabel() {{
+  if (!showNh || !fourier) return;
+  ctx.save();
+  ctx.fillStyle = "white";
+  ctx.font = (VB_SIZE * 4 / 100) + "px sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.fillText(getNumHarmonics(), firstDotX + 2 * scale, firstDotY);
+  ctx.restore();
 }}
 
 let numHarmonics = 2;
@@ -726,106 +797,19 @@ function getNumHarmonics() {{
   return Math.max(1, Math.min(numHarmonics, fourier.length));
 }}
 
-function updateFourier(t) {{
-  if (!fourier) return;
-  const numH = getNumHarmonics();
-  let cx = 0, cy = 0;
-  let firstDotX = 0, firstDotY = 0;
-  for (let k = 0; k < fourier.length; k++) {{
-    const circle = document.getElementById("fourier-circle-" + k);
-    const line = document.getElementById("fourier-line-" + k);
-    const fdot = document.getElementById("fourier-dot-" + k);
-    if (k >= numH) {{
-      circle.style.display = "none";
-      line.style.display = "none";
-      fdot.style.display = "none";
-      continue;
-    }}
-    circle.style.display = "";
-    line.style.display = "";
-    fdot.style.display = "";
-    const c = fourier[k];
-    const theta = 2 * Math.PI * c.freq * t;
-    const dx = c.re * Math.cos(theta) - c.im * Math.sin(theta);
-    const dy = c.im * Math.cos(theta) + c.re * Math.sin(theta);
-    const nx = cx + dx;
-    const ny = cy + dy;
-    circle.setAttribute("cx", cx);
-    circle.setAttribute("cy", cy);
-    line.setAttribute("x1", cx);
-    line.setAttribute("y1", cy);
-    line.setAttribute("x2", nx);
-    line.setAttribute("y2", ny);
-    fdot.setAttribute("cx", nx);
-    fdot.setAttribute("cy", ny);
-    if (k === 0) {{ firstDotX = nx; firstDotY = ny; }}
-    cx = nx;
-    cy = ny;
-  }}
-  if (document.getElementById("chkNh").checked) {{
-    nhLabel.setAttribute("x", firstDotX + 2 * scale);
-    nhLabel.setAttribute("y", firstDotY);
-    nhLabel.textContent = numH;
-  }}
-}}
-
-initFourier();
-updateFourier(0);
-
-const sparkRaysG = document.getElementById("spark-rays");
-const sparkParticlesG = document.getElementById("spark-particles");
-const sparkScale = {vb_size} / 100;
-const NUM_RAYS = 14;
-const NUM_PARTICLES = 8;
-const sparkRayEls = [];
-const sparkParticleEls = [];
-for (let i = 0; i < NUM_RAYS; i++) {{
-  const line = document.createElementNS(svgNS, "line");
-  line.setAttribute("stroke-linecap", "round");
-  sparkRaysG.appendChild(line);
-  sparkRayEls.push(line);
-}}
-for (let i = 0; i < NUM_PARTICLES; i++) {{
-  const c = document.createElementNS(svgNS, "circle");
-  c.setAttribute("fill", "gold");
-  sparkParticlesG.appendChild(c);
-  sparkParticleEls.push(c);
-}}
-function updateSpark() {{
-  for (let i = 0; i < NUM_RAYS; i++) {{
-    const angle = Math.random() * Math.PI * 2;
-    const len = (2.0 + Math.random() * 6.0) * sparkScale;
-    const inner = (0.2 + Math.random() * 0.5) * sparkScale;
-    const cos = Math.cos(angle), sin = Math.sin(angle);
-    sparkRayEls[i].setAttribute("x1", cos * inner);
-    sparkRayEls[i].setAttribute("y1", sin * inner);
-    sparkRayEls[i].setAttribute("x2", cos * len);
-    sparkRayEls[i].setAttribute("y2", sin * len);
-    const bright = Math.random() > 0.4;
-    sparkRayEls[i].setAttribute("stroke", bright ? "gold" : "darkorange");
-    sparkRayEls[i].setAttribute("stroke-width", (0.3 + Math.random() * 0.5) * sparkScale);
-    sparkRayEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.6);
-  }}
-  for (let i = 0; i < NUM_PARTICLES; i++) {{
-    const angle = Math.random() * Math.PI * 2;
-    const dist = (2.0 + Math.random() * 5.0) * sparkScale;
-    sparkParticleEls[i].setAttribute("cx", Math.cos(angle) * dist);
-    sparkParticleEls[i].setAttribute("cy", Math.sin(angle) * dist);
-    sparkParticleEls[i].setAttribute("r", (0.1 + Math.random() * 0.3) * sparkScale);
-    sparkParticleEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.5);
-  }}
-}}
-
 function updateDisplay(t) {{
   tval.textContent = "t = " + t.toFixed(3);
   slider.value = t;
-  updateFourier(t);
-  updateTrace(t);
-  updateSpark();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setupTransform();
+  drawContour();
+  drawFourier(t);
+  updateTraceData(t);
+  drawTrace();
   const pt = evalFourier(t);
-  if (pt) {{
-    dot.setAttribute("transform", "translate(" + pt[0] + "," + pt[1] + ")");
-  }}
+  if (pt) drawSpark(pt[0], pt[1]);
+  drawNhLabel();
 }}
 
 slider.addEventListener("input", function() {{
@@ -910,12 +894,10 @@ function applyLoopParams() {{
   if (titleEl) titleEl.textContent = "Harmonics: " + h;
   document.getElementById("loopVal").textContent = "loop " + loopIndex + "/" + totalLoops + " \u2014 harmonics: " + h;
   traceColorIdx = loopIndex % traceColors.length;
-  traceEl.setAttribute("stroke", traceColors[traceColorIdx]);
-  const traceMode = getShowMode("selTrace");
-  traceVisible = shouldShow(traceMode, loopIndex);
-  if (!traceVisible) {{ traceHistory = []; traceEl.style.display = "none"; }}
-  contourPath.style.display = shouldShow(getShowMode("selContour"), loopIndex) ? "" : "none";
-  fourierGroup.style.display = shouldShow(getShowMode("selCircles"), loopIndex) ? "" : "none";
+  traceVisible = shouldShow(getShowMode("selTrace"), loopIndex);
+  if (!traceVisible) traceHistory = [];
+  contourVisible = shouldShow(getShowMode("selContour"), loopIndex);
+  fourierVisible = shouldShow(getShowMode("selCircles"), loopIndex);
 }}
 
 applyLoopParams();
@@ -928,7 +910,6 @@ function animate(timestamp) {{
   if (currentT > 1) {{
     currentT -= 1;
     traceHistory = [];
-    fourierGroup.style.display = "none";
     loopIndex = (loopIndex + 1) % totalLoops;
     applyLoopParams();
   }}
@@ -968,14 +949,20 @@ document.getElementById("harmonicsBtn").addEventListener("click", function() {{
 lastTime = null;
 animId = requestAnimationFrame(animate);
 </script>"#,
-        svg = svg,
+        canvas = canvas,
+        vb_x = p.vb_x,
+        vb_y = p.vb_y,
+        vb_size = p.vb_size,
+        svg_path = p.svg_path,
         points_array = p.points_array,
         fourier_json = p.fourier_json,
-        vb_size = p.vb_size,
+        dot_r = p.dot_r,
+        show_point = opts.show_point,
+        show_nh = opts.show_nh,
         opacity = opts.opacity,
-        trace_length = opts.trace_length,
         trace_width = opts.trace_width,
         contour_width = opts.contour_width,
+        trace_length = opts.trace_length,
         contour_select = contour_select,
         point_checked = point_checked,
         trace_select = trace_select,
@@ -1014,7 +1001,7 @@ animId = requestAnimationFrame(animate);
 }
 
 fn inner_content_embed(p: &Params, opts: &EmbedOptions) -> String {
-    let svg = svg_markup(p);
+    let canvas = canvas_markup();
     let ranges_json = format!(
         "[{}]",
         opts.steps
@@ -1024,58 +1011,87 @@ fn inner_content_embed(p: &Params, opts: &EmbedOptions) -> String {
             .collect::<Vec<_>>()
             .join(",")
     );
-    let contour_init = match &opts.show_contour {
-        WhenToShow::Always => {
-            r#"document.getElementById("contour-path").style.display = "";"#.to_string()
-        }
-        WhenToShow::Never => String::new(),
-        WhenToShow::OnceEvery(_) => {
-            r#"const contourPath = document.getElementById("contour-path");"#.to_string()
-        }
+    let contour_visible_init = match &opts.show_contour {
+        WhenToShow::Always => "true",
+        WhenToShow::Never => "false",
+        WhenToShow::Congruence(_) => "true",
     };
-    let update_contour_visible_js = match &opts.show_contour {
+    let trace_visible_init = match &opts.show_trace {
+        WhenToShow::Always => "true",
+        WhenToShow::Never => "false",
+        WhenToShow::Congruence(_) => "true",
+    };
+    let fourier_visible_init = match &opts.show_fourier_circles {
+        WhenToShow::Always => "true",
+        WhenToShow::Never => "false",
+        WhenToShow::Congruence(_) => "true",
+    };
+    let update_contour_js = match &opts.show_contour {
         WhenToShow::Always | WhenToShow::Never => String::new(),
-        WhenToShow::OnceEvery(e) => format!(
-            "  contourPath.style.display = {}.includes(loopIndex % {}) ? \"\" : \"none\";",
-            format_js_array(&e.remainders),
+        WhenToShow::Congruence(e) => format!(
+            "  contourVisible = {}.includes(loopIndex % {});",
+            format_js_array(&e.congruents),
             e.modulo
         ),
     };
-    let fourier_circles_init = match &opts.show_fourier_circles {
-        WhenToShow::Always => String::new(),
-        WhenToShow::Never => {
-            r#"document.getElementById("fourier-group").style.display = "none";"#.to_string()
-        }
-        WhenToShow::OnceEvery(_) => {
-            r#"const fourierGroup = document.getElementById("fourier-group");"#.to_string()
-        }
-    };
-    let update_fourier_circles_visible_js = match &opts.show_fourier_circles {
+    let update_trace_js = match &opts.show_trace {
         WhenToShow::Always | WhenToShow::Never => String::new(),
-        WhenToShow::OnceEvery(e) => format!(
-            "  fourierGroup.style.display = {}.includes(loopIndex % {}) ? \"\" : \"none\";",
-            format_js_array(&e.remainders),
+        WhenToShow::Congruence(e) => format!(
+            "  traceVisible = {}.includes(loopIndex % {});\n  if (!traceVisible) traceHistory = [];",
+            format_js_array(&e.congruents),
+            e.modulo
+        ),
+    };
+    let update_fourier_js = match &opts.show_fourier_circles {
+        WhenToShow::Always | WhenToShow::Never => String::new(),
+        WhenToShow::Congruence(e) => format!(
+            "  fourierVisible = {}.includes(loopIndex % {});",
+            format_js_array(&e.congruents),
             e.modulo
         ),
     };
     format!(
-        r#"{svg}
+        r#"{canvas}
 <script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const VB_X = {vb_x};
+const VB_Y = {vb_y};
+const VB_SIZE = {vb_size};
+const contourPath2D = new Path2D("{svg_path}");
 const points = {points_array};
 const fourier = {fourier_json};
-const dot = document.getElementById("dot");
-const svgNS = "http://www.w3.org/2000/svg";
-const fourierCircleColors = ["blue", "green", "orange", "purple", "cyan", "magenta"];
+const fourierCircleColors = ["blue","green","orange","purple","cyan","magenta"];
 const traceColors = {trace_colors_json};
 let traceColorIdx = 0;
-const scale = {vb_size} / 100;
-const traceEl = document.getElementById("trace");
-{trace_visible_js}
+const scale = VB_SIZE / 100;
+const dotR = {dot_r};
+const sparkScale = VB_SIZE / 100;
+const NUM_RAYS = 14;
+const NUM_PARTICLES = 8;
+let contourVisible = {contour_visible_init};
+let traceVisible = {trace_visible_init};
+let fourierVisible = {fourier_visible_init};
+const dotHidden = {dot_hidden};
+const showNh = {show_nh};
+const traceOpacity = {opacity};
+const traceWidth = {trace_width};
+const contourWidth = {contour_width};
 let traceHistory = [];
 const traceMaxLen = Math.round({trace_length} * points.length);
-traceEl.setAttribute("opacity", {opacity});
-traceEl.setAttribute("stroke-width", {trace_width} * scale);
-document.getElementById("contour-path").setAttribute("stroke-width", {contour_width} * scale);
+let firstDotX = 0, firstDotY = 0;
+
+const dpr = window.devicePixelRatio || 1;
+canvas.width = 500 * dpr;
+canvas.height = 500 * dpr;
+
+function setupTransform() {{
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.scale(dpr, dpr);
+  const s = 500 / VB_SIZE;
+  ctx.translate(-VB_X * s, -VB_Y * s);
+  ctx.scale(s, s);
+}}
 
 function evalFourier(t) {{
   if (!fourier) return null;
@@ -1090,62 +1106,131 @@ function evalFourier(t) {{
   return [cx, cy];
 }}
 
-function updateTrace(t) {{
-  if (!traceVisible || !fourier) {{
-    traceEl.style.display = "none";
-    return;
+function drawContour() {{
+  if (!contourVisible) return;
+  ctx.save();
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = contourWidth * scale;
+  ctx.stroke(contourPath2D);
+  ctx.restore();
+}}
+
+function drawFourier(t) {{
+  if (!fourierVisible || !fourier) return;
+  const numH = getNumHarmonics();
+  let cx = 0, cy = 0;
+  for (let k = 0; k < numH; k++) {{
+    const c = fourier[k];
+    const theta = 2 * Math.PI * c.freq * t;
+    const dx = c.re * Math.cos(theta) - c.im * Math.sin(theta);
+    const dy = c.im * Math.cos(theta) + c.re * Math.sin(theta);
+    const nx = cx + dx;
+    const ny = cy + dy;
+    const color = fourierCircleColors[k % fourierCircleColors.length];
+    ctx.beginPath();
+    ctx.arc(cx, cy, c.r, 0, 2 * Math.PI);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.3 * scale;
+    ctx.setLineDash([scale, scale]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(nx, ny);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.3 * scale;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(nx, ny, 0.8 * scale, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    if (k === 0) {{ firstDotX = nx; firstDotY = ny; }}
+    cx = nx;
+    cy = ny;
   }}
+}}
+
+function updateTraceData(t) {{
+  if (!traceVisible || !fourier) return;
   const pt = evalFourier(t);
   if (!pt) return;
   traceHistory.push(pt);
   if (traceHistory.length > traceMaxLen) {{
     traceHistory = traceHistory.slice(traceHistory.length - traceMaxLen);
   }}
-  traceEl.setAttribute("points", traceHistory.map(p => p[0] + "," + p[1]).join(" "));
-  traceEl.style.display = "";
 }}
 
-function interp(t) {{
-  const n = points.length;
-  if (n === 0) return [0, 0];
-  if (n === 1) return points[0];
-  const scaled = t * (n - 1);
-  const i = Math.min(Math.floor(scaled), n - 2);
-  const frac = scaled - i;
-  return [
-    points[i][0] * (1 - frac) + points[i + 1][0] * frac,
-    points[i][1] * (1 - frac) + points[i + 1][1] * frac
-  ];
-}}
-
-function initFourier() {{
-  if (!fourier) return;
-  const g = document.getElementById("fourier-group");
-
-  for (let k = 0; k < fourier.length; k++) {{
-    const color = fourierCircleColors[k % fourierCircleColors.length];
-
-    const circle = document.createElementNS(svgNS, "circle");
-    circle.id = "fourier-circle-" + k;
-    circle.setAttribute("fill", "none");
-    circle.setAttribute("stroke", color);
-    circle.setAttribute("stroke-width", 0.3 * scale);
-    circle.setAttribute("stroke-dasharray", scale + "," + scale);
-    circle.setAttribute("r", fourier[k].r);
-    g.appendChild(circle);
-
-    const line = document.createElementNS(svgNS, "line");
-    line.id = "fourier-line-" + k;
-    line.setAttribute("stroke", color);
-    line.setAttribute("stroke-width", 0.3 * scale);
-    g.appendChild(line);
-
-    const fdot = document.createElementNS(svgNS, "circle");
-    fdot.id = "fourier-dot-" + k;
-    fdot.setAttribute("r", 0.8 * scale);
-    fdot.setAttribute("fill", color);
-    g.appendChild(fdot);
+function drawTrace() {{
+  if (!traceVisible || traceHistory.length < 2) return;
+  ctx.save();
+  ctx.globalAlpha = traceOpacity;
+  ctx.strokeStyle = traceColors[traceColorIdx];
+  ctx.lineWidth = traceWidth * scale;
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(traceHistory[0][0], traceHistory[0][1]);
+  for (let i = 1; i < traceHistory.length; i++) {{
+    ctx.lineTo(traceHistory[i][0], traceHistory[i][1]);
   }}
+  ctx.stroke();
+  ctx.restore();
+}}
+
+function drawSpark(px, py) {{
+  if (dotHidden) return;
+  ctx.save();
+  ctx.translate(px, py);
+  const glowR = dotR * 3;
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+  grad.addColorStop(0, "white");
+  grad.addColorStop(0.2, "lightyellow");
+  grad.addColorStop(0.5, "orange");
+  grad.addColorStop(0.8, "orangered");
+  grad.addColorStop(1, "transparent");
+  ctx.beginPath();
+  ctx.arc(0, 0, glowR, 0, 2 * Math.PI);
+  ctx.fillStyle = grad;
+  ctx.globalAlpha = 0.9;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
+  ctx.arc(0, 0, dotR * 0.5, 0, 2 * Math.PI);
+  ctx.fillStyle = "white";
+  ctx.fill();
+  ctx.lineCap = "round";
+  for (let i = 0; i < NUM_RAYS; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const len = (2.0 + Math.random() * 6.0) * sparkScale;
+    const inner = (0.2 + Math.random() * 0.5) * sparkScale;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(cos * inner, sin * inner);
+    ctx.lineTo(cos * len, sin * len);
+    ctx.strokeStyle = Math.random() > 0.4 ? "gold" : "darkorange";
+    ctx.lineWidth = (0.3 + Math.random() * 0.5) * sparkScale;
+    ctx.globalAlpha = 0.3 + Math.random() * 0.6;
+    ctx.stroke();
+  }}
+  for (let i = 0; i < NUM_PARTICLES; i++) {{
+    const angle = Math.random() * Math.PI * 2;
+    const dist = (2.0 + Math.random() * 5.0) * sparkScale;
+    ctx.beginPath();
+    ctx.arc(Math.cos(angle) * dist, Math.sin(angle) * dist, (0.1 + Math.random() * 0.3) * sparkScale, 0, 2 * Math.PI);
+    ctx.fillStyle = "gold";
+    ctx.globalAlpha = 0.3 + Math.random() * 0.5;
+    ctx.fill();
+  }}
+  ctx.restore();
+}}
+
+function drawNhLabel() {{
+  if (!showNh || !fourier) return;
+  ctx.save();
+  ctx.fillStyle = "white";
+  ctx.font = (VB_SIZE * 4 / 100) + "px sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.fillText(getNumHarmonics(), firstDotX + 2 * scale, firstDotY);
+  ctx.restore();
 }}
 
 let numHarmonics = 2;
@@ -1154,118 +1239,17 @@ function getNumHarmonics() {{
   return Math.max(1, Math.min(numHarmonics, fourier.length));
 }}
 
-function updateFourier(t) {{
-  if (!fourier) return;
-  const numH = getNumHarmonics();
-  let cx = 0, cy = 0;
-  let firstDotX = 0, firstDotY = 0;
-
-  for (let k = 0; k < fourier.length; k++) {{
-    const circle = document.getElementById("fourier-circle-" + k);
-    const line = document.getElementById("fourier-line-" + k);
-    const fdot = document.getElementById("fourier-dot-" + k);
-
-    if (k >= numH) {{
-      circle.style.display = "none";
-      line.style.display = "none";
-      fdot.style.display = "none";
-      continue;
-    }}
-
-    circle.style.display = "";
-    line.style.display = "";
-    fdot.style.display = "";
-
-    const c = fourier[k];
-    const theta = 2 * Math.PI * c.freq * t;
-    const dx = c.re * Math.cos(theta) - c.im * Math.sin(theta);
-    const dy = c.im * Math.cos(theta) + c.re * Math.sin(theta);
-    const nx = cx + dx;
-    const ny = cy + dy;
-
-    circle.setAttribute("cx", cx);
-    circle.setAttribute("cy", cy);
-
-    line.setAttribute("x1", cx);
-    line.setAttribute("y1", cy);
-    line.setAttribute("x2", nx);
-    line.setAttribute("y2", ny);
-
-    fdot.setAttribute("cx", nx);
-    fdot.setAttribute("cy", ny);
-
-    if (k === 0) {{ firstDotX = nx; firstDotY = ny; }}
-    cx = nx;
-    cy = ny;
-  }}
-  if ({show_nh}) {{
-    const nhLabel = document.getElementById("nh-label");
-    nhLabel.setAttribute("x", firstDotX + 2 * scale);
-    nhLabel.setAttribute("y", firstDotY);
-    nhLabel.textContent = numH;
-  }}
-}}
-
-initFourier();
-updateFourier(0);
-{contour_init}
-{fourier_circles_init}
-
-const sparkRaysG = document.getElementById("spark-rays");
-const sparkParticlesG = document.getElementById("spark-particles");
-const sparkScale = {vb_size} / 100;
-const NUM_RAYS = 14;
-const NUM_PARTICLES = 8;
-const sparkRayEls = [];
-const sparkParticleEls = [];
-for (let i = 0; i < NUM_RAYS; i++) {{
-  const line = document.createElementNS(svgNS, "line");
-  line.setAttribute("stroke-linecap", "round");
-  sparkRaysG.appendChild(line);
-  sparkRayEls.push(line);
-}}
-for (let i = 0; i < NUM_PARTICLES; i++) {{
-  const c = document.createElementNS(svgNS, "circle");
-  c.setAttribute("fill", "gold");
-  sparkParticlesG.appendChild(c);
-  sparkParticleEls.push(c);
-}}
-function updateSpark() {{
-  for (let i = 0; i < NUM_RAYS; i++) {{
-    const angle = Math.random() * Math.PI * 2;
-    const len = (2.0 + Math.random() * 6.0) * sparkScale;
-    const inner = (0.2 + Math.random() * 0.5) * sparkScale;
-    const cos = Math.cos(angle), sin = Math.sin(angle);
-    sparkRayEls[i].setAttribute("x1", cos * inner);
-    sparkRayEls[i].setAttribute("y1", sin * inner);
-    sparkRayEls[i].setAttribute("x2", cos * len);
-    sparkRayEls[i].setAttribute("y2", sin * len);
-    const bright = Math.random() > 0.4;
-    sparkRayEls[i].setAttribute("stroke", bright ? "gold" : "darkorange");
-    sparkRayEls[i].setAttribute("stroke-width", (0.3 + Math.random() * 0.5) * sparkScale);
-    sparkRayEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.6);
-  }}
-  for (let i = 0; i < NUM_PARTICLES; i++) {{
-    const angle = Math.random() * Math.PI * 2;
-    const dist = (2.0 + Math.random() * 5.0) * sparkScale;
-    sparkParticleEls[i].setAttribute("cx", Math.cos(angle) * dist);
-    sparkParticleEls[i].setAttribute("cy", Math.sin(angle) * dist);
-    sparkParticleEls[i].setAttribute("r", (0.1 + Math.random() * 0.3) * sparkScale);
-    sparkParticleEls[i].setAttribute("opacity", 0.3 + Math.random() * 0.5);
-  }}
-}}
-
-let dotHidden = {dot_hidden};
-
 function updateDisplay(t) {{
-  updateFourier(t);
-  updateTrace(t);
-  updateSpark();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  setupTransform();
+  drawContour();
+  drawFourier(t);
+  updateTraceData(t);
+  drawTrace();
   const pt = evalFourier(t);
-  if (pt) {{
-    dot.setAttribute("transform", "translate(" + pt[0] + "," + pt[1] + ")");
-  }}
-  if (!dotHidden) dot.style.display = "";
+  if (pt) drawSpark(pt[0], pt[1]);
+  drawNhLabel();
 }}
 
 let animId = null;
@@ -1309,10 +1293,9 @@ function applyLoopParams() {{
   numHarmonics = h;
   currentSpeed = nhSpeeds[loopIndex] || 1;
   traceColorIdx = loopIndex % traceColors.length;
-  traceEl.setAttribute("stroke", traceColors[traceColorIdx]);
-{update_trace_visible_js}
-{update_contour_visible_js}
-{update_fourier_circles_visible_js}
+{update_trace_js}
+{update_contour_js}
+{update_fourier_js}
 }}
 
 applyLoopParams();
@@ -1325,7 +1308,6 @@ function animate(timestamp) {{
   if (currentT > 1) {{
     currentT -= 1;
     traceHistory = [];
-    document.getElementById("fourier-group").style.display = "none";
     loopIndex = (loopIndex + 1) % totalLoops;
     applyLoopParams();
   }}
@@ -1336,36 +1318,28 @@ function animate(timestamp) {{
 lastTime = null;
 animId = requestAnimationFrame(animate);
 </script>"#,
-        svg = svg,
+        canvas = canvas,
+        vb_x = p.vb_x,
+        vb_y = p.vb_y,
+        vb_size = p.vb_size,
+        svg_path = p.svg_path,
         points_array = p.points_array,
         fourier_json = p.fourier_json,
-        vb_size = p.vb_size,
-        trace_visible_js = match &opts.show_trace {
-            WhenToShow::Always => "let traceVisible = true;".to_string(),
-            WhenToShow::Never => "let traceVisible = false;".to_string(),
-            WhenToShow::OnceEvery(_) => "let traceVisible = true;".to_string(),
-        },
-        update_trace_visible_js = match &opts.show_trace {
-            WhenToShow::Always => String::new(),
-            WhenToShow::Never => String::new(),
-            WhenToShow::OnceEvery(e) => format!(
-                "  traceVisible = {}.includes(loopIndex % {});",
-                format_js_array(&e.remainders),
-                e.modulo
-            ),
-        },
-        trace_length = opts.trace_length,
+        trace_colors_json = serde_json_string_array(&opts.trace_colors),
+        dot_r = p.dot_r,
+        contour_visible_init = contour_visible_init,
+        trace_visible_init = trace_visible_init,
+        fourier_visible_init = fourier_visible_init,
         dot_hidden = !opts.show_point,
-        contour_init = contour_init,
-        update_contour_visible_js = update_contour_visible_js,
-        fourier_circles_init = fourier_circles_init,
-        update_fourier_circles_visible_js = update_fourier_circles_visible_js,
-        opacity = opts.opacity,
         show_nh = opts.show_nh,
+        opacity = opts.opacity,
         trace_width = opts.trace_width,
         contour_width = opts.contour_width,
-        trace_colors_json = serde_json_string_array(&opts.trace_colors),
-        ranges_json = ranges_json,
+        trace_length = opts.trace_length,
         max_harmonics = opts.max_harmonics,
+        ranges_json = ranges_json,
+        update_trace_js = update_trace_js,
+        update_contour_js = update_contour_js,
+        update_fourier_js = update_fourier_js,
     )
 }

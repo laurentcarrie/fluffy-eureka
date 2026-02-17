@@ -21,10 +21,10 @@ steps:
     step: 500
     to: 5000
     speed: 1.0
-show_contour: !OnceEvery
+show_contour: !Congruence
   modulo:
     3
-  remainders:
+  congruents:
     - 0
 show_point: true
 show_trace: Always
@@ -33,10 +33,10 @@ opacity: 0.8
 show_nh: true
 trace_width: 0.5
 contour_width: 0.5
-show_fourier_circles: !OnceEvery
+show_fourier_circles: !Congruence
   modulo:
     3
-  remainders:
+  congruents:
     - 1
     - 2
 flip_y: true

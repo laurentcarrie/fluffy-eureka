@@ -57,20 +57,20 @@ impl Default for HarmonicSteps {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct OnceEvery {
+pub struct Congruence {
     pub modulo: usize,
-    pub remainders: Vec<usize>,
+    pub congruents: Vec<usize>,
 }
 
-impl OnceEvery {
+impl Congruence {
     pub fn validate(&self, field: &str) -> Result<(), String> {
         if self.modulo == 0 {
             return Err(format!("{field}: modulo must be > 0"));
         }
-        for &r in &self.remainders {
+        for &r in &self.congruents {
             if r >= self.modulo {
                 return Err(format!(
-                    "{field}: remainder {r} must be < modulo {}",
+                    "{field}: congruent {r} must be < modulo {}",
                     self.modulo
                 ));
             }
@@ -83,7 +83,7 @@ impl OnceEvery {
 pub enum WhenToShow {
     Always,
     Never,
-    OnceEvery(OnceEvery),
+    Congruence(Congruence),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -120,13 +120,13 @@ fn default_trace_colors() -> Vec<String> {
 impl EmbedOptions {
     pub fn validate(&self) -> Result<(), String> {
         self.steps.validate()?;
-        if let WhenToShow::OnceEvery(e) = &self.show_contour {
+        if let WhenToShow::Congruence(e) = &self.show_contour {
             e.validate("show_contour")?;
         }
-        if let WhenToShow::OnceEvery(e) = &self.show_trace {
+        if let WhenToShow::Congruence(e) = &self.show_trace {
             e.validate("show_trace")?;
         }
-        if let WhenToShow::OnceEvery(e) = &self.show_fourier_circles {
+        if let WhenToShow::Congruence(e) = &self.show_fourier_circles {
             e.validate("show_fourier_circles")?;
         }
         Ok(())

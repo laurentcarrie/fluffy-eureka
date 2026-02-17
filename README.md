@@ -150,7 +150,7 @@ steps:
     step: 10
     to: 100
     speed: 3.0
-show_contour: Never          # Always, Never, or !OnceEvery {modulo: N, remainders: [0]}
+show_contour: Never          # Always, Never, or !Congruence {modulo: N, congruents: [0]}
 show_point: true
 show_trace: Always
 trace_length: 0.5
@@ -191,7 +191,7 @@ Fields `show_contour`, `show_trace`, and `show_fourier_circles` accept:
 
 - `Always` — show on every loop
 - `Never` — never show
-- `!OnceEvery {modulo: N, remainders: [r1, r2, ...]}` — show when `loop_index % N` is in the remainders list
+- `!Congruence {modulo: N, congruents: [r1, r2, ...]}` — show when `loop_index % N` is in the congruents list
 
 ## Interactive controls
 
@@ -201,9 +201,9 @@ The generated full HTML page includes:
 - **Loop display** — current loop index and harmonic count
 - **Start / Stop** — animate the drawing
 - **Harmonics loop** — editable harmonic step schedule (`from step to speed ; ...`), speed is per-range
-- **Contour / Trace / Circles** — select Always, Never, or Modulo (with modulo and remainders)
+- **Contour / Trace / Circles** — select Always, Never, or Congruence (with modulo and congruents)
 - **Point** — toggle the drawing position indicator
-- **NH label** — toggle the harmonic count label on the SVG
+- **NH label** — toggle the harmonic count label
 - **Opacity** — trace opacity
 - **Trace length** — fraction of the contour retained in the trace
 - **Trace width / Contour width** — stroke widths
@@ -237,7 +237,7 @@ src/
   lib.rs          — Library crate root
   contour.rs      — Contour, ContourFunction, Fourier decomposition
   model.rs        — EmbedOptions, HarmonicSteps, WhenToShow config types
-  svg.rs          — SVG path parsing, HTML generation
+  canvas.rs       — SVG path parsing, HTML/Canvas generation
   text.rs         — Text-to-SVG-path using system fonts
   test.rs         — Unit tests
   bin/

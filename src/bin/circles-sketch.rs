@@ -1,12 +1,12 @@
 use std::fs;
 use std::path::Path;
 
-use circles_sketch::contour::{Contour, fourier_decomposition, interpolate};
-use circles_sketch::model::EmbedOptions;
-use circles_sketch::svg::{
+use circles_sketch::canvas::{
     embed_html_of_svg_path_with_fourier, html_of_svg_path_with_fourier, points_of_svg_path,
     svg_path_of_contour,
 };
+use circles_sketch::contour::{Contour, fourier_decomposition, interpolate};
+use circles_sketch::model::EmbedOptions;
 use circles_sketch::text::svg_path_of_text;
 use clap::{Parser, Subcommand};
 use font_kit::source::SystemSource;
